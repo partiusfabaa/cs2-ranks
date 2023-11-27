@@ -1,6 +1,6 @@
-namespace LevelRanks;
+namespace Ranks;
 
-public class LevelRanksDb
+public class RankDb
 {
     public required string Host { get; init; }
     public required string Database { get; init; }

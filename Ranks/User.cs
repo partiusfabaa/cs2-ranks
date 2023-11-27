@@ -1,4 +1,4 @@
-namespace LevelRanks;
+namespace Ranks;
 
 public class User
 {

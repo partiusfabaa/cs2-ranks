@@ -12,16 +12,17 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Dapper;
 using MySqlConnector;
 
-namespace LevelRanks;
+namespace Ranks;
 
-public class LevelRanks : BasePlugin
+public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
-    public override string ModuleName => "Level Ranks";
+    public override string ModuleName => "Ranks";
     public override string ModuleVersion => "v1.0.0";
 
     private static string _dbConnectionString = string.Empty;
+    
     private Config _config = null!;
 
     private readonly Dictionary<ulong, User> _users = new();
@@ -41,11 +42,6 @@ public class LevelRanks : BasePlugin
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
-
-        // RegisterListener<Listeners.OnClientAuthorized>((slot, steamId) =>
-        // {
-        //     Task.Run(() => OnClientAuthorizedAsync(slot, steamId));
-        // });
 
         RegisterListener<Listeners.OnClientConnected>(slot =>
         {
@@ -174,8 +170,8 @@ public class LevelRanks : BasePlugin
 
         if (victim != null)
         {
-            // if (victim.IsBot || victim is { PlayerName: null })
-            //     return HookResult.Continue;
+            if (victim is { PlayerName: null })
+                return HookResult.Continue;
 
             UpdateUserStatsLocal(victim, "XP per death \x02:(\x08", exp: configEvent.Deaths, increase: false,
                 death: 1);
@@ -285,7 +281,7 @@ public class LevelRanks : BasePlugin
 
     private void CreateMenu()
     {
-        var title = "\x08--[ \x0CLevel Ranks \x08]--";
+        var title = "\x08--[ \x0CRanks \x08]--";
         var menu = new ChatMenu(title);
 
         var ranksMenu = new ChatMenu(title);
@@ -299,7 +295,7 @@ public class LevelRanks : BasePlugin
                 (_, _) => Server.PrintToChatAll(""), true);
         }
 
-        AddCommand("css_lvl", "command that opens the VIP MENU", (player, _) =>
+        AddCommand("css_lvl", "", (player, _) =>
         {
             if (player == null) return;
             ChatMenus.OpenMenu(player, menu);
@@ -311,7 +307,14 @@ public class LevelRanks : BasePlugin
     {
         if (controller == null) return;
 
-        Task.Run(() => ShowTopPlayers(controller));
+        foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
+        {
+            var entityIndex = players.EntityIndex!.Value.Value;
+
+            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), _users[controller.SteamID], _logoutTime[entityIndex] - _loginTime[entityIndex]));
+        }
+
+        AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
     }
 
     [ConsoleCommand("css_rank")]
@@ -327,8 +330,7 @@ public class LevelRanks : BasePlugin
         if (!_users.TryGetValue(controller.SteamID, out var user)) return;
 
         var index = controller.EntityIndex!.Value.Value;
-
-        Console.WriteLine(user.play_time);
+        
         var totalPlayTime = TimeSpan.FromSeconds(user.play_time);
         var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
         var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
@@ -444,7 +446,7 @@ public class LevelRanks : BasePlugin
 
             var query = @"
             SELECT `username`, `experience`, `kdr`
-            FROM `levelranks_users`
+            FROM `ranks_users`
             ORDER BY `experience` DESC
             LIMIT 10;";
 
@@ -475,7 +477,7 @@ public class LevelRanks : BasePlugin
 
             var updateQuery = @"
         UPDATE 
-            `levelranks_users` 
+            `ranks_users` 
         SET 
             `username` = @Username,
             `experience` = @Experience,
@@ -527,9 +529,9 @@ public class LevelRanks : BasePlugin
             await connection.OpenAsync();
 
             var rankQuery =
-                "SELECT COUNT(*) + 1 AS PlayerRank FROM levelranks_users WHERE experience > (SELECT experience FROM levelranks_users WHERE steamid = @SteamId);";
+                "SELECT COUNT(*) + 1 AS PlayerRank FROM ranks_users WHERE experience > (SELECT experience FROM ranks_users WHERE steamid = @SteamId);";
 
-            var totalPlayersQuery = "SELECT COUNT(*) AS TotalPlayers FROM levelranks_users;";
+            var totalPlayersQuery = "SELECT COUNT(*) AS TotalPlayers FROM ranks_users;";
 
             var playerRank =
                 await connection.QueryFirstOrDefaultAsync<int>(rankQuery, new { SteamId = steamId.SteamId2 });
@@ -572,7 +574,7 @@ public class LevelRanks : BasePlugin
             };
 
             var query = @"
-                INSERT INTO `levelranks_users` 
+                INSERT INTO `ranks_users` 
                 (`username`, `steamid`, `experience`, `score`, `kills`, `deaths`, `assists`, `noscope_kills`, `damage`, `mvp`, `headshot_kills`, `percentage_headshot`, `kdr`, `last_active`, `play_time`, `last_level`) 
                 VALUES 
                 (@username, @steamid, @Experience, @score, @kills, @deaths, @assists, @noscope_kills, @damage, @mvp, @headshot_kills, @percentage_headshot, @kdr, @last_active, @play_time, @last_level);";
@@ -593,7 +595,7 @@ public class LevelRanks : BasePlugin
             dbConnection.Open();
 
             var createLrTable = @"
-            CREATE TABLE IF NOT EXISTS `levelranks_users` (
+            CREATE TABLE IF NOT EXISTS `ranks_users` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
                 `username` VARCHAR(255) NOT NULL,
                 `steamid` VARCHAR(255) NOT NULL,
@@ -628,7 +630,7 @@ public class LevelRanks : BasePlugin
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
             var user = await connection.QueryFirstOrDefaultAsync<User>(
-                "SELECT * FROM `levelranks_users` WHERE `steamid` = @SteamId", new { SteamId = steamId.SteamId2 });
+                "SELECT * FROM `ranks_users` WHERE `steamid` = @SteamId", new { SteamId = steamId.SteamId2 });
 
             return user;
         }
@@ -660,7 +662,7 @@ public class LevelRanks : BasePlugin
 
     private Config LoadConfig()
     {
-        var configPath = Path.Combine(ModuleDirectory, "settings_lr.json");
+        var configPath = Path.Combine(ModuleDirectory, "settings_ranks.json");
         if (!File.Exists(configPath)) return CreateConfig(configPath);
 
         var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))!;
@@ -672,7 +674,7 @@ public class LevelRanks : BasePlugin
     {
         var config = new Config
         {
-            Prefix = "[ {BLUE}LevelRanks {DEFAULT}]",
+            Prefix = "[ {BLUE}Ranks {DEFAULT}]",
             MinPlayers = 4,
             Events = new EventsExpSettings
             {
@@ -708,7 +710,7 @@ public class LevelRanks : BasePlugin
                 { "Supreme", 3400 },
                 { "The Global Elite", 4500 }
             },
-            Connection = new LevelRanksDb
+            Connection = new RankDb
             {
                 Host = "HOST",
                 Database = "DATABASE_NAME",
@@ -730,7 +732,7 @@ public class LevelRanks : BasePlugin
             await connection.OpenAsync();
 
             var exists = await connection.ExecuteScalarAsync<bool>(
-                "SELECT EXISTS(SELECT 1 FROM `levelranks_users` WHERE `steamid` = @SteamId)",
+                "SELECT EXISTS(SELECT 1 FROM `ranks_users` WHERE `steamid` = @SteamId)",
                 new { SteamId = steamId.SteamId2 });
 
             return exists;
@@ -802,5 +804,5 @@ public class Config
     public EventsExpSettings Events { get; set; } = null!;
     public Dictionary<string, int> Weapon { get; set; } = null!;
     public Dictionary<string, int> Ranks { get; set; } = null!;
-    public LevelRanksDb Connection { get; set; } = null!;
+    public RankDb Connection { get; set; } = null!;
 }
