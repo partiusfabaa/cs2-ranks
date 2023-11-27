@@ -51,20 +51,21 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 ## Events
 
-- **EventRoundMvp**: 12     //Amount of experience for MVP
+- **EventRoundMvp**: 12     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// Amount of experience for MVP
 - **EventPlayerDeath**:
-  - Kills: 13              //amount of experience gained per kill
-  - Deaths: 20             //the amount of experience you lose per death
-  - Assists: 5             //the amount of experience you get for assisting in a kill
-  - KillingAnAlly: 6       //the amount of experience you lose for killing an ally
+  - Kills: 13              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// Amount of experience gained per kill
+  - Deaths: 20             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you lose per death
+  - Assists: 5             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you get for assisting in a kill
+  - KillingAnAlly: 6       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you lose for killing an ally
 - **EventPlayerBomb**:
-  - DroppedBomb: 5        //the amount of experience lost for losing a bomb
-  - PlantedBomb: 3        //the amount of experience you get for planting a bomb
-  - DefusedBomb: 3        //the amount of experience you get for defusing a bomb
-  - PickUpBomb: 3         //the amount of experience you get for picking up a bomb
+  - DroppedBomb: 5         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience lost for losing a bomb
+  - PlantedBomb: 3         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you get for planting a bomb
+  - DefusedBomb: 3         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you get for defusing a bomb
+  - PickUpBomb: 3          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience you get for picking up a bomb
 - **EventRoundEnd**:
-  - Winner: 5            //the amount of experience gained per round won
-  - Loser: 8             //the amount of experience lost for losing a round
+  - Winner: 5             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience gained per round won
+  - Loser: 8              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// The amount of experience lost for losing a round
+
 
 ## Weapons
  You get extra experience for killing with this weapon (you can add your own weapons without `weapon_`)
