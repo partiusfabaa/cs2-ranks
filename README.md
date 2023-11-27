@@ -34,7 +34,7 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 # Installation
 1. Install [CounterStrike Sharp](https://github.com/roflmuffin/CounterStrikeSharp) and [Metamod:Source](https://www.sourcemm.net/downloads.php/?branch=master)
-3. Download [Ranks](https://github.com/partiusfabaa/)
+3. Download [Ranks](https://github.com/partiusfabaa/cs2-ranks/releases/tag/v1.0.0)
 4. Unzip the archive and upload it to the game server
 
 # Commands
