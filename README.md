@@ -45,3 +45,35 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 | `css_lvl` or `!lvl` | opens a menu where you can view all ranks |
 | `css_top` or `!top` | displaying the top 10 players in chat |
 | `css_rank` or `!rank` | chat statistics display |
+
+
+# Config
+
+## Events
+
+- **EventRoundMvp**: 12     //Amount of experience for MVP
+- **EventPlayerDeath**:
+  - Kills: 13              //amount of experience gained per kill
+  - Deaths: 20             //the amount of experience you lose per death
+  - Assists: 5             //the amount of experience you get for assisting in a kill
+  - KillingAnAlly: 6       //the amount of experience you lose for killing an ally
+- **EventPlayerBomb**:
+  - DroppedBomb: 5        //the amount of experience lost for losing a bomb
+  - PlantedBomb: 3        //the amount of experience you get for planting a bomb
+  - DefusedBomb: 3        //the amount of experience you get for defusing a bomb
+  - PickUpBomb: 3         //the amount of experience you get for picking up a bomb
+- **EventRoundEnd**:
+  - Winner: 5            //the amount of experience gained per round won
+  - Loser: 8             //the amount of experience lost for losing a round
+
+## Weapons
+ You get extra experience for killing with this weapon (you can add your own weapons without `weapon_`)
+- knife: 5
+- awp: 2
+
+## Database connection
+
+- Host: "HOST"
+- Database: "DATABASE"
+- User: "USER"
+- Password: "PASSWORD"
