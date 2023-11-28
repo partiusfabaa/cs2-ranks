@@ -149,7 +149,8 @@ public class Ranks : BasePlugin
             percentage_headshot = user.percentage_headshot,
             kdr = user.kdr,
             play_time = user.play_time,
-            last_level = user.last_level
+            last_level = user.last_level,
+            clan_tag_enabled = user.clan_tag_enabled
         };
     }
 
