@@ -80,7 +80,7 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-                if(!user.clan_tag_enabled) continue;
+                if(!user.clan_tag_enabled || !_config.EnableScoreBoardRanks) continue;
                 
                 player.Clan = $"[{GetLevelFromExperience(user.experience).Name}]";
             }
@@ -105,7 +105,7 @@ public class Ranks : BasePlugin
 
         return HookResult.Continue;
     }
-    
+
     private string GetTextInsideQuotes(string input)
     {
         var startIndex = input.IndexOf('"');
@@ -230,8 +230,6 @@ public class Ranks : BasePlugin
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
-        user.username = player.PlayerName;
-
         if (increase)
             user.experience += exp;
         else
@@ -299,7 +297,8 @@ public class Ranks : BasePlugin
                         ? $"Congratulations! You've reached level \x06[ {newLevel.Name} ]"
                         : $"Oh no! Your level has decreased to \x02[ {newLevel.Name} ]");
 
-                    if(user.clan_tag_enabled) player.Clan = $"[{newLevel.Name}]";
+                    if(_config.EnableScoreBoardRanks && user.clan_tag_enabled) 
+                        player.Clan = $"[{newLevel.Name}]";
                     
                     user.last_level = newLevel.Level;
                 }
@@ -343,11 +342,41 @@ public class Ranks : BasePlugin
         {
             var entityIndex = players.EntityIndex!.Value.Value;
 
+            if (!_users.TryGetValue(players.SteamID, out var user)) return;
+            
             var playTime = (_logoutTime[entityIndex] = DateTime.Now) - _loginTime[entityIndex];
-            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), _users[controller.SteamID], playTime));
+            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, playTime));
         }
-
+        
         AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
+    }
+
+    private async Task ShowTopPlayers(CCSPlayerController controller)
+    {
+        try
+        {
+            await using var connection = new MySqlConnection(_dbConnectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
+
+            var topPlayers = await connection.QueryAsync<User>(query);
+
+            var rank = 1;
+            foreach (var player in topPlayers)
+            {
+                var level = GetLevelFromExperience(player.experience);
+
+                controller.PrintToChat(
+                    $"{rank}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
+                rank++;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     [ConsoleCommand("css_rank")]
@@ -363,7 +392,7 @@ public class Ranks : BasePlugin
     {
         if (player == null) return;
 
-        var user = _users[player.SteamID];
+        if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
         user.clan_tag_enabled ^= true;
 
@@ -442,7 +471,7 @@ public class Ranks : BasePlugin
             {
                 var player = Utilities.GetPlayerFromIndex(i);
 
-                if (player.IsValid && !player.IsBot)
+                if (player is { IsValid: true, IsBot: false })
                 {
                     if (player.TeamNum != (int)CsTeam.Spectator)
                     {
@@ -485,34 +514,6 @@ public class Ranks : BasePlugin
             UpdateUserStatsLocal(@event.Userid, $"XP for planting the bomb", exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
-    }
-
-    private async Task ShowTopPlayers(CCSPlayerController controller)
-    {
-        try
-        {
-            await using var connection = new MySqlConnection(_dbConnectionString);
-            await connection.OpenAsync();
-
-            var query = @"
-        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
-
-            var topPlayers = await connection.QueryAsync<User>(query);
-
-            var rank = 1;
-            foreach (var player in topPlayers)
-            {
-                var level = GetLevelFromExperience(player.experience);
-
-                controller.PrintToChat(
-                    $"{rank}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
-                rank++;
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
     }
 
     private async Task UpdateUserStatsDb(SteamID steamId, User user, TimeSpan playtime)
@@ -725,6 +726,7 @@ public class Ranks : BasePlugin
         var config = new Config
         {
             Prefix = "[ {BLUE}Ranks {DEFAULT}]",
+            EnableScoreBoardRanks = true,
             MinPlayers = 4,
             Events = new EventsExpSettings
             {
@@ -850,6 +852,7 @@ public class PlayerStats
 public class Config
 {
     public required string Prefix { get; init; }
+    public bool EnableScoreBoardRanks { get; init; }
     public int MinPlayers { get; init; }
     public EventsExpSettings Events { get; set; } = null!;
     public Dictionary<string, int> Weapon { get; set; } = null!;
