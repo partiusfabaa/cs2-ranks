@@ -19,7 +19,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.0";
+    public override string ModuleVersion => "v1.0.1";
 
     private static string _dbConnectionString = string.Empty;
     
