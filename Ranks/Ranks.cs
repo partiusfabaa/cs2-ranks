@@ -369,10 +369,10 @@ public class Ranks : BasePlugin
 
         if (!user.clan_tag_enabled)
         {
-            SendMessageToSpecificChat(player, "Ranks\x02 disabled\x01 in the table");
+            SendMessageToSpecificChat(player, "Tag\x02 disabled");
             return;
         }
-        SendMessageToSpecificChat(player, "Ranks\x06 enabled\x01 in the table");
+        SendMessageToSpecificChat(player, "Tag\x06 enabled");
     }
 
     private async void GetUserStats(CCSPlayerController controller)
