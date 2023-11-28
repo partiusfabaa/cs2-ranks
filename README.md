@@ -45,6 +45,7 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 | `css_lvl` or `!lvl` | opens a menu where you can view all ranks |
 | `css_top` or `!top` or `top` | displaying the top 10 players in chat |
 | `css_rank` or `!rank` or `rank` | chat statistics display  |
+| `css_rank_tag` or `!rank_tag` | allows to place and delete a rank on the tab |
 
 
 # Config
