@@ -66,17 +66,22 @@ public class Ranks : BasePlugin
             {
                 var playTime = _logoutTime[entityIndex] - _loginTime[entityIndex];
                 Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, playTime));
+                _users.Remove(player.SteamID);
             }
 
             return HookResult.Continue;
         });
+        
+        AddCommandListener("say", CommandListener_Say);
+        AddCommandListener("say_team", CommandListener_Say);
 
         AddTimer(1.0f, () =>
         {
             foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-
+                if(!user.clan_tag_enabled) continue;
+                
                 player.Clan = $"[{GetLevelFromExperience(user.experience).Name}]";
             }
         }, TimerFlags.REPEAT);
@@ -84,6 +89,34 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
+    }
+
+    private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
+    {
+        switch (GetTextInsideQuotes(info.ArgString))
+        {
+            case "rank":
+                OnCmdRank(player, info);
+                return HookResult.Continue;
+            case "top":
+                OnCmdTop(player, info);
+                return HookResult.Continue;
+        }
+
+        return HookResult.Continue;
+    }
+    
+    private string GetTextInsideQuotes(string input)
+    {
+        var startIndex = input.IndexOf('"');
+        var endIndex = input.LastIndexOf('"');
+
+        if (startIndex != -1 && endIndex != -1 && startIndex < endIndex)
+        {
+            return input.Substring(startIndex + 1, endIndex - startIndex - 1);
+        }
+
+        return string.Empty;
     }
 
     private async Task OnClientConnectedAsync(int slot, SteamID steamId)
@@ -99,7 +132,7 @@ public class Ranks : BasePlugin
         var user = await GetUserStatsFromDb(steamId);
 
         if (user == null) return;
-
+        
         _users[steamId.SteamId64] = new User
         {
             username = player.PlayerName,
@@ -179,9 +212,7 @@ public class Ranks : BasePlugin
 
         if (assister.IsValid)
         {
-            Server.PrintToChatAll("1");
             if (assister.IsBot || assister is { PlayerPawn: null }) return HookResult.Continue;
-            Server.PrintToChatAll("2");
 
             UpdateUserStatsLocal(assister, "XP for assisting in a kill", exp: configEvent.Assists, assist: 1);
         }
@@ -268,7 +299,8 @@ public class Ranks : BasePlugin
                         ? $"Congratulations! You've reached level \x06[ {newLevel.Name} ]"
                         : $"Oh no! Your level has decreased to \x02[ {newLevel.Name} ]");
 
-                    player.Clan = $"[{newLevel.Name}]";
+                    if(user.clan_tag_enabled) player.Clan = $"[{newLevel.Name}]";
+                    
                     user.last_level = newLevel.Level;
                 }
 
@@ -301,7 +333,7 @@ public class Ranks : BasePlugin
             ChatMenus.OpenMenu(player, menu);
         });
     }
-
+    
     [ConsoleCommand("css_top")]
     public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
     {
@@ -311,7 +343,8 @@ public class Ranks : BasePlugin
         {
             var entityIndex = players.EntityIndex!.Value.Value;
 
-            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), _users[controller.SteamID], _logoutTime[entityIndex] - _loginTime[entityIndex]));
+            var playTime = (_logoutTime[entityIndex] = DateTime.Now) - _loginTime[entityIndex];
+            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), _users[controller.SteamID], playTime));
         }
 
         AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
@@ -323,6 +356,23 @@ public class Ranks : BasePlugin
         if (controller == null) return;
 
         Task.Run(() => GetUserStats(controller));
+    }
+
+    [ConsoleCommand("css_rank_tag")]
+    public void ToggleRank(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null) return;
+
+        var user = _users[player.SteamID];
+
+        user.clan_tag_enabled ^= true;
+
+        if (!user.clan_tag_enabled)
+        {
+            SendMessageToSpecificChat(player, "Ranks\x02 disabled\x01 in the table");
+            return;
+        }
+        SendMessageToSpecificChat(player, "Ranks\x06 enabled\x01 in the table");
     }
 
     private async void GetUserStats(CCSPlayerController controller)
@@ -445,10 +495,7 @@ public class Ranks : BasePlugin
             await connection.OpenAsync();
 
             var query = @"
-            SELECT `username`, `experience`, `kdr`
-            FROM `ranks_users`
-            ORDER BY `experience` DESC
-            LIMIT 10;";
+        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
@@ -459,7 +506,7 @@ public class Ranks : BasePlugin
 
                 controller.PrintToChat(
                     $"{rank}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
-                rank ++;
+                rank++;
             }
         }
         catch (Exception e)
@@ -493,7 +540,8 @@ public class Ranks : BasePlugin
             `kdr` = @Kdr,
             `last_active` = NOW(),
             `play_time` = `play_time` + @PlayTime,
-            `last_level` = @LastLevel
+            `last_level` = @LastLevel,
+            `clan_tag_enabled` = @ClanTagEnabled
         WHERE `steamid` = @SteamId";
 
             await connection.ExecuteAsync(updateQuery, new
@@ -512,7 +560,8 @@ public class Ranks : BasePlugin
                 PercentageHeadshot = user.percentage_headshot,
                 Kdr = user.kdr,
                 LastLevel = user.last_level,
-                PlayTime = (int)playtime.TotalSeconds
+                PlayTime = (int)playtime.TotalSeconds,
+                ClanTagEnabled = user.clan_tag_enabled
             });
         }
         catch (Exception e)
@@ -570,14 +619,15 @@ public class Ranks : BasePlugin
                 kdr = 0.0,
                 last_active = DateTime.Now,
                 play_time = 0,
-                last_level = 0
+                last_level = 0,
+                clan_tag_enabled = true
             };
 
             var query = @"
                 INSERT INTO `ranks_users` 
-                (`username`, `steamid`, `experience`, `score`, `kills`, `deaths`, `assists`, `noscope_kills`, `damage`, `mvp`, `headshot_kills`, `percentage_headshot`, `kdr`, `last_active`, `play_time`, `last_level`) 
+                (`username`, `steamid`, `experience`, `score`, `kills`, `deaths`, `assists`, `noscope_kills`, `damage`, `mvp`, `headshot_kills`, `percentage_headshot`, `kdr`, `last_active`, `play_time`, `last_level`, `clan_tag_enabled`) 
                 VALUES 
-                (@username, @steamid, @Experience, @score, @kills, @deaths, @assists, @noscope_kills, @damage, @mvp, @headshot_kills, @percentage_headshot, @kdr, @last_active, @play_time, @last_level);";
+                (@username, @steamid, @Experience, @score, @kills, @deaths, @assists, @noscope_kills, @damage, @mvp, @headshot_kills, @percentage_headshot, @kdr, @last_active, @play_time, @last_level, @clan_tag_enabled);";
 
             await connection.ExecuteAsync(query, parameters);
         }
@@ -596,7 +646,6 @@ public class Ranks : BasePlugin
 
             var createLrTable = @"
             CREATE TABLE IF NOT EXISTS `ranks_users` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
                 `username` VARCHAR(255) NOT NULL,
                 `steamid` VARCHAR(255) NOT NULL,
                 `experience` BIGINT NOT NULL,
@@ -612,7 +661,8 @@ public class Ranks : BasePlugin
                 `kdr` DOUBLE NOT NULL,
                 `last_active` DATETIME NOT NULL,
                 `play_time` BIGINT NOT NULL,
-                `last_level` INT NOT NULL DEFAULT 0
+                `last_level` INT NOT NULL DEFAULT 0,
+                `clan_tag_enabled` BOOL NOT NULL
             );";
 
             await dbConnection.ExecuteAsync(createLrTable);

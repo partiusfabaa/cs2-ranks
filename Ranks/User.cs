@@ -16,6 +16,7 @@ public class User
     public double percentage_headshot { get; set; }
     public double kdr { get; set; }
     public DateTime last_active { get; set; }
-    public int play_time { get; set; }
+    public long play_time { get; set; }
     public int last_level { get; set; }
+    public bool clan_tag_enabled { get; set; }
 }
