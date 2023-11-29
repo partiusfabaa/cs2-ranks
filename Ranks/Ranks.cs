@@ -175,7 +175,7 @@ public class Ranks : BasePlugin
 
         var configEvent = _config.Events.EventPlayerDeath;
 
-        if (attacker != null)
+        if (attacker.IsValid)
         {
             if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
                 return HookResult.Continue;
@@ -202,9 +202,9 @@ public class Ranks : BasePlugin
             }
         }
 
-        if (victim != null)
+        if (victim.IsValid)
         {
-            if (victim is { PlayerName: null })
+            if (victim.IsBot || victim is { PlayerName: null })
                 return HookResult.Continue;
 
             UpdateUserStatsLocal(victim, "XP per death \x02:(\x08", exp: configEvent.Deaths, increase: false,
@@ -477,7 +477,8 @@ public class Ranks : BasePlugin
                     if (player.TeamNum != (int)CsTeam.Spectator)
                     {
                         if (player.TeamNum != winner)
-                            UpdateUserStatsLocal(player, "XP for losing a round", exp: configEvent.Loser);
+                            UpdateUserStatsLocal(player, "XP for losing a round", exp: configEvent.Loser,
+                                increase: false);
                         else
                             UpdateUserStatsLocal(player, "XP for winning the round", exp: configEvent.Winner);
                     }
