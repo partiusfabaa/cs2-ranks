@@ -85,12 +85,23 @@ public class Ranks : BasePlugin
                 player.Clan = $"[{GetLevelFromExperience(user.experience).Name}]";
             }
         }, TimerFlags.REPEAT);
+        AddTimer(300.0f, () =>
+        {
+            foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
+            {
+                if (!_users.TryGetValue(player.SteamID, out var user)) continue;
+        
+                var entityIndex = player.EntityIndex!.Value.Value;
+                var playTime = _logoutTime[entityIndex] - _loginTime[entityIndex];
+                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, playTime));
+            }
+        }, TimerFlags.REPEAT);
 
         RoundEvent();
         BombEvents();
         CreateMenu();
     }
-
+    
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
         switch (GetTextInsideQuotes(info.ArgString))
