@@ -22,7 +22,7 @@ public class Ranks : BasePlugin
     public override string ModuleVersion => "v1.0.1";
 
     private static string _dbConnectionString = string.Empty;
-    
+
     private Config _config = null!;
 
     private readonly Dictionary<ulong, User> _users = new();
@@ -71,7 +71,7 @@ public class Ranks : BasePlugin
 
             return HookResult.Continue;
         });
-        
+
         AddCommandListener("say", CommandListener_Say);
         AddCommandListener("say_team", CommandListener_Say);
 
@@ -80,8 +80,8 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-                if(!user.clan_tag_enabled || !_config.EnableScoreBoardRanks) continue;
-                
+                if (!user.clan_tag_enabled || !_config.EnableScoreBoardRanks) continue;
+
                 player.Clan = $"[{GetLevelFromExperience(user.experience).Name}]";
             }
         }, TimerFlags.REPEAT);
@@ -132,7 +132,7 @@ public class Ranks : BasePlugin
         var user = await GetUserStatsFromDb(steamId);
 
         if (user == null) return;
-        
+
         _users[steamId.SteamId64] = new User
         {
             username = player.PlayerName,
@@ -174,6 +174,7 @@ public class Ranks : BasePlugin
             return HookResult.Continue;
 
         var configEvent = _config.Events.EventPlayerDeath;
+        var additionally = _config.Events.Additionally;
 
         if (attacker.IsValid)
         {
@@ -192,12 +193,24 @@ public class Ranks : BasePlugin
                     if (Regex.Match(weaponName, "knife").Success)
                         weaponName = "knife";
 
+                    UpdateUserStatsLocal(attacker, "XP per kill", exp: configEvent.Kills, kills: 1,
+                        dmg: @event.DmgHealth);
+
+                    if (@event.Penetrated > 0)
+                        UpdateUserStatsLocal(attacker, "XP for killing through the wall",
+                            exp: additionally.Penetrated);
+                    if (@event.Thrusmoke)
+                        UpdateUserStatsLocal(attacker, "XP for murder through smoke", exp: additionally.Thrusmoke);
+                    if (@event.Noscope)
+                        UpdateUserStatsLocal(attacker, "XP for murder without a scope", exp: additionally.Noscope,
+                            nzKills: @event.Noscope ? 1 : 0);
+                    if (@event.Headshot)
+                        UpdateUserStatsLocal(attacker, "XP for a murder to the head", exp: additionally.Headshot,
+                            headKills: @event.Headshot ? 1 : 0, headshot: @event.Headshot);
+                    if (@event.Attackerblind)
+                        UpdateUserStatsLocal(attacker, "XP for the blind murder", exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
                         UpdateUserStatsLocal(attacker, $"XP for murder with a {weaponName}", exp: exp);
-
-                    UpdateUserStatsLocal(attacker, "XP per kill", exp: configEvent.Kills,
-                        kills: 1, headKills: @event.Headshot ? 1 : 0,
-                        nzKills: @event.Noscope ? 1 : 0, dmg: @event.DmgHealth, headshot: @event.Headshot);
                 }
             }
         }
@@ -227,7 +240,7 @@ public class Ranks : BasePlugin
     {
         if (_config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
-                .WarmupPeriod) return;
+                .WarmupPeriod || exp == -1) return;
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
@@ -298,9 +311,9 @@ public class Ranks : BasePlugin
                         ? $"Congratulations! You've reached level \x06[ {newLevel.Name} ]"
                         : $"Oh no! Your level has decreased to \x02[ {newLevel.Name} ]");
 
-                    if(_config.EnableScoreBoardRanks && user.clan_tag_enabled) 
+                    if (_config.EnableScoreBoardRanks && user.clan_tag_enabled)
                         player.Clan = $"[{newLevel.Name}]";
-                    
+
                     user.last_level = newLevel.Level;
                 }
 
@@ -333,7 +346,7 @@ public class Ranks : BasePlugin
             ChatMenus.OpenMenu(player, menu);
         });
     }
-    
+
     [ConsoleCommand("css_top")]
     public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
     {
@@ -344,11 +357,11 @@ public class Ranks : BasePlugin
             var entityIndex = players.EntityIndex!.Value.Value;
 
             if (!_users.TryGetValue(players.SteamID, out var user)) return;
-            
+
             var playTime = (_logoutTime[entityIndex] = DateTime.Now) - _loginTime[entityIndex];
             Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, playTime));
         }
-        
+
         AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
     }
 
@@ -371,7 +384,7 @@ public class Ranks : BasePlugin
 
                 controller.PrintToChat(
                     $"{rank}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
-                rank++;
+                rank ++;
             }
         }
         catch (Exception e)
@@ -402,6 +415,7 @@ public class Ranks : BasePlugin
             SendMessageToSpecificChat(player, "Tag\x02 disabled");
             return;
         }
+
         SendMessageToSpecificChat(player, "Tag\x06 enabled");
     }
 
@@ -410,7 +424,7 @@ public class Ranks : BasePlugin
         if (!_users.TryGetValue(controller.SteamID, out var user)) return;
 
         var index = controller.EntityIndex!.Value.Value;
-        
+
         var totalPlayTime = TimeSpan.FromSeconds(user.play_time);
         var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
         var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
@@ -464,6 +478,7 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventRoundEnd>((@event, _) =>
         {
             var winner = @event.Winner;
+
             var configEvent = _config.Events.EventRoundEnd;
 
             if (_config.MinPlayers > PlayersCount()) return HookResult.Continue;
@@ -736,6 +751,8 @@ public class Ranks : BasePlugin
                 EventPlayerDeath = new PlayerDeath { Kills = 15, Deaths = 20, Assists = 5, KillingAnAlly = 10 },
                 EventPlayerBomb = new Bomb { DroppedBomb = 5, DefusedBomb = 3, PickUpBomb = 3, PlantedBomb = 4 },
                 EventRoundEnd = new RoundEnd { Winner = 5, Loser = 8 },
+                Additionally = new Additionally
+                    { Headshot = 1, Noscope = 2, Attackerblind = 1, Thrusmoke = 1, Penetrated = 2 }
             },
             Weapon = new Dictionary<string, int>
             {
@@ -748,7 +765,7 @@ public class Ranks : BasePlugin
                 { "Silver I", 50 },
                 { "Silver II", 100 },
                 { "Silver III", 150 },
-                { "Silver VI", 300 },
+                { "Silver IV", 300 },
                 { "Silver Elite", 400 },
                 { "Silver Elite Master", 500 },
                 { "Gold Nova I", 600 },
