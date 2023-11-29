@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+﻿﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -240,9 +240,11 @@ public class Ranks : BasePlugin
     {
         if (_config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
-                .WarmupPeriod || exp == -1) return;
+                .WarmupPeriod) return;
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
+
+        exp = exp == -1 ? 0 : exp;
 
         if (increase)
             user.experience += exp;
@@ -275,8 +277,9 @@ public class Ranks : BasePlugin
         if (user.experience <= 0) user.experience = 0;
 
         var nextXp = GetExperienceToNextLevel(player);
-        Server.NextFrame(() => SendMessageToSpecificChat(player,
-            $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{GetExperienceToNextLevel(player)}\x08)")}"));
+        if(exp != 0)
+            Server.NextFrame(() => SendMessageToSpecificChat(player,
+                $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{GetExperienceToNextLevel(player)}\x08)")}"));
     }
 
     private (string Name, int Level) GetLevelFromExperience(long experience)
