@@ -1,11 +1,11 @@
-﻿﻿using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -14,12 +14,13 @@ using MySqlConnector;
 
 namespace Ranks;
 
+[MinimumApiVersion(84)]
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.2";
+    public override string ModuleVersion => "v1.0.3";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -28,7 +29,6 @@ public class Ranks : BasePlugin
     private readonly Dictionary<ulong, User> _users = new();
 
     private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers];
-    private readonly DateTime[] _logoutTime = new DateTime[Server.MaxPlayers];
 
     private enum PrintTo
     {
@@ -49,7 +49,7 @@ public class Ranks : BasePlugin
             if (!player.IsBot)
             {
                 Task.Run(() => OnClientConnectedAsync(slot, new SteamID(player.SteamID)));
-                _loginTime[player.EntityIndex!.Value.Value] = DateTime.Now;
+                _loginTime[player.Index] = DateTime.Now;
             }
         });
 
@@ -58,17 +58,13 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>((@event, _) =>
         {
             var player = @event.Userid;
-            var entityIndex = player.EntityIndex!.Value.Value;
-
-            _logoutTime[entityIndex] = DateTime.Now;
+            var entityIndex = player.Index;
 
             if (_users.TryGetValue(player.SteamID, out var user))
             {
-                var playTime = _logoutTime[entityIndex] - _loginTime[entityIndex];
-                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, playTime));
+                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
                 _users.Remove(player.SteamID);
             }
-
             return HookResult.Continue;
         });
 
@@ -90,10 +86,9 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-        
-                var entityIndex = player.EntityIndex!.Value.Value;
-                var playTime = _logoutTime[entityIndex] - _loginTime[entityIndex];
-                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, playTime));
+
+                var entityIndex = player.Index;
+                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
             }
         }, TimerFlags.REPEAT);
 
@@ -101,17 +96,20 @@ public class Ranks : BasePlugin
         BombEvents();
         CreateMenu();
     }
-    
+
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
-        switch (GetTextInsideQuotes(info.ArgString))
+        if (_config.UseCommandWithoutPrefix)
         {
-            case "rank":
-                OnCmdRank(player, info);
-                return HookResult.Continue;
-            case "top":
-                OnCmdTop(player, info);
-                return HookResult.Continue;
+            switch (GetTextInsideQuotes(info.ArgString))
+            {
+                case "rank":
+                    OnCmdRank(player, info);
+                    return HookResult.Continue;
+                case "top":
+                    OnCmdTop(player, info);
+                    return HookResult.Continue;
+            }
         }
 
         return HookResult.Continue;
@@ -288,7 +286,7 @@ public class Ranks : BasePlugin
         if (user.experience <= 0) user.experience = 0;
 
         var nextXp = GetExperienceToNextLevel(player);
-        if(exp != 0)
+        if (exp != 0)
             Server.NextFrame(() => SendMessageToSpecificChat(player,
                 $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{GetExperienceToNextLevel(player)}\x08)")}"));
     }
@@ -368,12 +366,11 @@ public class Ranks : BasePlugin
 
         foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
         {
-            var entityIndex = players.EntityIndex!.Value.Value;
+            var entityIndex = players.Index;
 
             if (!_users.TryGetValue(players.SteamID, out var user)) return;
-
-            var playTime = (_logoutTime[entityIndex] = DateTime.Now) - _loginTime[entityIndex];
-            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, playTime));
+            
+            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, GetTotalTime(entityIndex)));
         }
 
         AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
@@ -427,17 +424,19 @@ public class Ranks : BasePlugin
         if (!user.clan_tag_enabled)
         {
             SendMessageToSpecificChat(player, "Tag\x02 disabled");
+            player.Clan = string.Empty;
             return;
         }
 
         SendMessageToSpecificChat(player, "Tag\x06 enabled");
+        player.Clan = GetLevelFromExperience(user.experience).Name;
     }
 
     private async void GetUserStats(CCSPlayerController controller)
     {
         if (!_users.TryGetValue(controller.SteamID, out var user)) return;
 
-        var index = controller.EntityIndex!.Value.Value;
+        var index = controller.Index;
 
         var totalPlayTime = TimeSpan.FromSeconds(user.play_time);
         var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
@@ -705,6 +704,16 @@ public class Ranks : BasePlugin
         }
     }
 
+    private TimeSpan GetTotalTime(uint entityIndex)
+    {
+        var currentTime = DateTime.Now;
+        var totalTime = currentTime - _loginTime[entityIndex];
+        
+        _loginTime[entityIndex] = currentTime;
+
+        return totalTime;
+    }
+
     private async Task<User?> GetUserStatsFromDb(SteamID steamId)
     {
         try
@@ -758,6 +767,7 @@ public class Ranks : BasePlugin
         {
             Prefix = "[ {BLUE}Ranks {DEFAULT}]",
             EnableScoreBoardRanks = true,
+            UseCommandWithoutPrefix = true,
             MinPlayers = 4,
             Events = new EventsExpSettings
             {
@@ -886,6 +896,7 @@ public class Config
 {
     public required string Prefix { get; init; }
     public bool EnableScoreBoardRanks { get; init; }
+    public bool UseCommandWithoutPrefix { get; init; }
     public int MinPlayers { get; init; }
     public EventsExpSettings Events { get; set; } = null!;
     public Dictionary<string, int> Weapon { get; set; } = null!;
