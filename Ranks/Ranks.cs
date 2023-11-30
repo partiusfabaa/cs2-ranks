@@ -417,7 +417,7 @@ public class Ranks : BasePlugin
     [ConsoleCommand("css_rank_tag")]
     public void ToggleRank(CCSPlayerController? player, CommandInfo info)
     {
-        if (player == null) return;
+        if (player == null || !_config.EnableScoreBoardRanks) return;
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
