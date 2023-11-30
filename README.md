@@ -50,6 +50,14 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 # Config
 
+## Other
+
+- **Prefix**: "[ {BLUE}Ranks {DEFAULT}]"    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Chat prefix
+- **EnableScoreBoardRanks**: true    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is tag included in the scoreboard? true - yes | false - no
+- **UseCommandWithoutPrefix**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is it possible to write `top` and `rank` without the prefix? true - yes | false - no
+- **ShowExperienceMessages**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Do I show the player chat messages how much experience he has gained? true - yes | false - no.
+- **MinPlayers**: 4    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; //Minimum number of players to gain experience
+
 ## Events
 
 - **EventRoundMvp**: 12     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// Amount of experience for MVP
