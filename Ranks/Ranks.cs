@@ -770,6 +770,7 @@ public class Ranks : BasePlugin
             Prefix = "[ {BLUE}Ranks {DEFAULT}]",
             EnableScoreBoardRanks = true,
             UseCommandWithoutPrefix = true,
+            ShowExperienceMessages = true,
             MinPlayers = 4,
             Events = new EventsExpSettings
             {
