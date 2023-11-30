@@ -288,9 +288,9 @@ public class Ranks : BasePlugin
         if (user.experience <= 0) user.experience = 0;
 
         var nextXp = GetExperienceToNextLevel(player);
-        if (exp != 0)
+        if (exp != 0 && _config.ShowExperienceMessages)
             Server.NextFrame(() => SendMessageToSpecificChat(player,
-                $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{GetExperienceToNextLevel(player)}\x08)")}"));
+                $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{nextXp}\x08)")}"));
     }
 
     private (string Name, int Level) GetLevelFromExperience(long experience)
@@ -890,8 +890,8 @@ public class Ranks : BasePlugin
 
 public class PlayerStats
 {
-    public int PlayerRank { get; set; }
-    public int TotalPlayers { get; set; }
+    public int PlayerRank { get; init; }
+    public int TotalPlayers { get; init; }
 }
 
 public class Config
@@ -899,6 +899,7 @@ public class Config
     public required string Prefix { get; init; }
     public bool EnableScoreBoardRanks { get; init; }
     public bool UseCommandWithoutPrefix { get; init; }
+    public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
     public EventsExpSettings Events { get; set; } = null!;
     public Dictionary<string, int> Weapon { get; set; } = null!;
