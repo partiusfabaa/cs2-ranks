@@ -253,6 +253,8 @@ public class Ranks : BasePlugin
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
+        user.username = player.PlayerName;
+        
         exp = exp == -1 ? 0 : exp;
 
         if (increase)
