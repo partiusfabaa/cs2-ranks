@@ -26,8 +26,9 @@ public class Ranks : BasePlugin
 
     private Config _config = null!;
 
-    private readonly Dictionary<ulong, User> _users = new();
+    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers];
 
+    private readonly Dictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers];
 
     private enum PrintTo
@@ -50,6 +51,7 @@ public class Ranks : BasePlugin
             {
                 Task.Run(() => OnClientConnectedAsync(slot, new SteamID(player.SteamID)));
                 _loginTime[player.Index] = DateTime.Now;
+                _userRankReset[player.Index] = false;
             }
         });
 
@@ -60,6 +62,8 @@ public class Ranks : BasePlugin
             var player = @event.Userid;
             var entityIndex = player.Index;
 
+            if (_userRankReset[entityIndex] != null) _userRankReset[entityIndex] = null;
+            
             if (_users.TryGetValue(player.SteamID, out var user))
             {
                 Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
@@ -99,9 +103,12 @@ public class Ranks : BasePlugin
 
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
+        if (player == null) return HookResult.Continue;
+        
+        var msg = GetTextInsideQuotes(info.ArgString);
         if (_config.UseCommandWithoutPrefix)
         {
-            switch (GetTextInsideQuotes(info.ArgString))
+            switch (msg)
             {
                 case "rank":
                     OnCmdRank(player, info);
@@ -112,9 +119,40 @@ public class Ranks : BasePlugin
             }
         }
 
+        if (_userRankReset[player.Index] != null)
+        {
+            if (_userRankReset[player.Index]!.Value)
+            {
+                _userRankReset[player.Index] = false;
+                switch (msg)
+                {
+                    case "confirm":
+                        SendMessageToSpecificChat(player, "The rank has been successfully reset!");
+                        Task.Run(() => ResetRank(player));
+                        return HookResult.Handled;
+                    case "cancel":
+                        SendMessageToSpecificChat(player, "Rank reset canceled. Operation aborted.");
+                        return HookResult.Handled;
+                }
+            }
+        }
+
         return HookResult.Continue;
     }
 
+    private async Task ResetRank(CCSPlayerController player)
+    {
+        var steamId = new SteamID(player.SteamID);
+        await ResetPlayerData(steamId.SteamId2);
+        _users[steamId.SteamId64] = new User
+        {
+            username = player.PlayerName,
+            steamid = steamId.SteamId2
+        };
+
+        _loginTime[player.Index] = DateTime.Now;
+    }
+    
     private string GetTextInsideQuotes(string input)
     {
         var startIndex = input.IndexOf('"');
@@ -345,6 +383,11 @@ public class Ranks : BasePlugin
 
         var ranksMenu = new ChatMenu(title);
         menu.AddMenuOption("Ranks", (player, _) => ChatMenus.OpenMenu(player, ranksMenu));
+        menu.AddMenuOption("Reset Rank", (player, _) =>
+        {
+            _userRankReset[player.Index] = true;
+            SendMessageToSpecificChat(player, "If you do agree to reset the rank to zero, write\x06 confirm\x01. If you want to cancel, write\x02 cancel");
+        });
 
         foreach (var rank in _config.Ranks)
         {
@@ -663,6 +706,40 @@ public class Ranks : BasePlugin
                 (@username, @steamid, @Experience, @score, @kills, @deaths, @assists, @noscope_kills, @damage, @mvp, @headshot_kills, @percentage_headshot, @kdr, @last_active, @play_time, @last_level, @clan_tag_enabled);";
 
             await connection.ExecuteAsync(query, parameters);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
+    }
+    
+    static async Task ResetPlayerData(string steamId)
+    {
+        try
+        {
+            await using var dbConnection = new MySqlConnection(_dbConnectionString);
+            dbConnection.Open();
+
+            var resetPlayerQuery = @"
+                UPDATE ranks_users
+                SET
+                    experience = 0,
+                    score = 0,
+                    kills = 0,
+                    deaths = 0,
+                    assists = 0,
+                    noscope_kills = 0,
+                    damage = 0,
+                    mvp = 0,
+                    headshot_kills = 0,
+                    percentage_headshot = 0,
+                    kdr = 0,
+                    last_active = NOW(),
+                    play_time = 0,
+                    last_level = 0
+                WHERE steamId = @SteamId;";
+
+            await dbConnection.ExecuteAsync(resetPlayerQuery, new { SteamId = steamId });
         }
         catch (Exception e)
         {
