@@ -571,26 +571,26 @@ public class Ranks : BasePlugin
         var configEvent = _config.Events.EventPlayerBomb;
         RegisterEventHandler<EventBombDropped>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, $"XP for dropping the bomb", exp: configEvent.DroppedBomb,
+            UpdateUserStatsLocal(@event.Userid, "XP for dropping the bomb", exp: configEvent.DroppedBomb,
                 increase: false);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombDefused>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, $"XP for defusing the bomb", exp: configEvent.DefusedBomb);
+            UpdateUserStatsLocal(@event.Userid, "XP for defusing the bomb", exp: configEvent.DefusedBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPickup>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, $"XP for raising the bomb", exp: configEvent.PickUpBomb);
+            UpdateUserStatsLocal(@event.Userid, "XP for raising the bomb", exp: configEvent.PickUpBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPlanted>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, $"XP for planting the bomb", exp: configEvent.PlantedBomb);
+            UpdateUserStatsLocal(@event.Userid, "XP for planting the bomb", exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
     }
