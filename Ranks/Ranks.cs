@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -20,7 +21,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.3";
+    public override string ModuleVersion => "v1.0.4";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -63,12 +64,13 @@ public class Ranks : BasePlugin
             var entityIndex = player.Index;
 
             if (_userRankReset[entityIndex] != null) _userRankReset[entityIndex] = null;
-            
+
             if (_users.TryGetValue(player.SteamID, out var user))
             {
                 Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
                 _users.Remove(player.SteamID);
             }
+
             return HookResult.Continue;
         });
 
@@ -104,7 +106,7 @@ public class Ranks : BasePlugin
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null) return HookResult.Continue;
-        
+
         var msg = GetTextInsideQuotes(info.ArgString);
         if (_config.UseCommandWithoutPrefix)
         {
@@ -152,7 +154,7 @@ public class Ranks : BasePlugin
 
         _loginTime[player.Index] = DateTime.Now;
     }
-    
+
     private string GetTextInsideQuotes(string input)
     {
         var startIndex = input.IndexOf('"');
@@ -292,7 +294,7 @@ public class Ranks : BasePlugin
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
 
         user.username = player.PlayerName;
-        
+
         exp = exp == -1 ? 0 : exp;
 
         if (increase)
@@ -359,7 +361,8 @@ public class Ranks : BasePlugin
 
                 if (newLevel.Level != user.last_level)
                 {
-                    SendMessageToSpecificChat(player, newLevel.Level > user.last_level
+                    var isUpRank = newLevel.Level > user.last_level;
+                    SendMessageToSpecificChat(player, isUpRank
                         ? $"Congratulations! You've reached level \x06[ {newLevel.Name} ]"
                         : $"Oh no! Your level has decreased to \x02[ {newLevel.Name} ]");
 
@@ -386,7 +389,8 @@ public class Ranks : BasePlugin
         menu.AddMenuOption("Reset Rank", (player, _) =>
         {
             _userRankReset[player.Index] = true;
-            SendMessageToSpecificChat(player, "If you do agree to reset the rank to zero, write\x06 confirm\x01. If you want to cancel, write\x02 cancel");
+            SendMessageToSpecificChat(player,
+                "If you do agree to reset the rank to zero, write\x06 confirm\x01. If you want to cancel, write\x02 cancel");
         });
 
         foreach (var rank in _config.Ranks)
@@ -414,7 +418,7 @@ public class Ranks : BasePlugin
             var entityIndex = players.Index;
 
             if (!_users.TryGetValue(players.SteamID, out var user)) return;
-            
+
             Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, GetTotalTime(entityIndex)));
         }
 
@@ -567,7 +571,7 @@ public class Ranks : BasePlugin
         var configEvent = _config.Events.EventPlayerBomb;
         RegisterEventHandler<EventBombDropped>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, $"XP for defusing the bomb", exp: configEvent.DroppedBomb,
+            UpdateUserStatsLocal(@event.Userid, $"XP for dropping the bomb", exp: configEvent.DroppedBomb,
                 increase: false);
             return HookResult.Continue;
         });
@@ -712,7 +716,7 @@ public class Ranks : BasePlugin
             Console.WriteLine(e);
         }
     }
-    
+
     static async Task ResetPlayerData(string steamId)
     {
         try
@@ -787,7 +791,7 @@ public class Ranks : BasePlugin
     {
         var currentTime = DateTime.Now;
         var totalTime = currentTime - _loginTime[entityIndex];
-        
+
         _loginTime[entityIndex] = currentTime;
 
         return totalTime;
