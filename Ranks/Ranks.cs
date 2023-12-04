@@ -6,7 +6,6 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -15,7 +14,7 @@ using MySqlConnector;
 
 namespace Ranks;
 
-[MinimumApiVersion(84)]
+[MinimumApiVersion(95)]
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
@@ -28,7 +27,6 @@ public class Ranks : BasePlugin
     private Config _config = null!;
 
     private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers];
-
     private readonly Dictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers];
 
@@ -45,12 +43,12 @@ public class Ranks : BasePlugin
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
 
-        RegisterListener<Listeners.OnClientConnected>(slot =>
+        RegisterListener<Listeners.OnClientAuthorized>((slot, id) => 
         {
             var player = Utilities.GetPlayerFromSlot(slot);
             if (!player.IsBot)
             {
-                Task.Run(() => OnClientConnectedAsync(slot, new SteamID(player.SteamID)));
+                Task.Run(() => OnClientAuthorizedAsync(slot, id));
                 _loginTime[player.Index] = DateTime.Now;
                 _userRankReset[player.Index] = false;
             }
@@ -62,15 +60,14 @@ public class Ranks : BasePlugin
         {
             var player = @event.Userid;
             var entityIndex = player.Index;
-
-            if (_userRankReset[entityIndex] != null) _userRankReset[entityIndex] = null;
+            
+            _userRankReset[entityIndex] = null;
 
             if (_users.TryGetValue(player.SteamID, out var user))
             {
                 Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
                 _users.Remove(player.SteamID);
             }
-
             return HookResult.Continue;
         });
 
@@ -168,7 +165,7 @@ public class Ranks : BasePlugin
         return string.Empty;
     }
 
-    private async Task OnClientConnectedAsync(int slot, SteamID steamId)
+    private async Task OnClientAuthorizedAsync(int slot, SteamID steamId)
     {
         var player = Utilities.GetPlayerFromSlot(slot);
 
@@ -326,6 +323,7 @@ public class Ranks : BasePlugin
         user.kdr = kdr;
 
         if (user.experience <= 0) user.experience = 0;
+        if (user.score <= 0) user.score = 0;
 
         var nextXp = GetExperienceToNextLevel(player);
         if (exp != 0 && _config.ShowExperienceMessages)
