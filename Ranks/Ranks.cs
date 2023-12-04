@@ -43,15 +43,17 @@ public class Ranks : BasePlugin
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
 
-        RegisterListener<Listeners.OnClientAuthorized>((slot, id) => 
+        RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
             var player = Utilities.GetPlayerFromSlot(slot);
-            if (!player.IsBot)
-            {
-                Task.Run(() => OnClientAuthorizedAsync(slot, id));
-                _loginTime[player.Index] = DateTime.Now;
-                _userRankReset[player.Index] = false;
-            }
+
+            if (player.IsBot) return;
+            var playerName = player.PlayerName;
+            var steamId = id;
+
+            Task.Run(() => OnClientAuthorizedAsync(playerName, steamId));
+            _loginTime[player.Index] = DateTime.Now;
+            _userRankReset[player.Index] = false;
         });
 
         RegisterEventHandler<EventRoundMvp>(EventRoundMvp);
@@ -60,14 +62,18 @@ public class Ranks : BasePlugin
         {
             var player = @event.Userid;
             var entityIndex = player.Index;
-            
+
             _userRankReset[entityIndex] = null;
 
             if (_users.TryGetValue(player.SteamID, out var user))
             {
-                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
+                var steamId = new SteamID(player.SteamID);
+                var totalTime = GetTotalTime(entityIndex);
+
+                Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
                 _users.Remove(player.SteamID);
             }
+
             return HookResult.Continue;
         });
 
@@ -91,7 +97,10 @@ public class Ranks : BasePlugin
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
 
                 var entityIndex = player.Index;
-                Task.Run(() => UpdateUserStatsDb(new SteamID(player.SteamID), user, GetTotalTime(entityIndex)));
+                var steamId = new SteamID(player.SteamID);
+                var totalTime = GetTotalTime(entityIndex);
+
+                Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
             }
         }, TimerFlags.REPEAT);
 
@@ -141,15 +150,20 @@ public class Ranks : BasePlugin
 
     private async Task ResetRank(CCSPlayerController player)
     {
-        var steamId = new SteamID(player.SteamID);
+        SteamID? steamId = null;
+        
+        Server.NextFrame(() => steamId = new SteamID(player.SteamID));
+        if (steamId == null) return;
         await ResetPlayerData(steamId.SteamId2);
-        _users[steamId.SteamId64] = new User
+        Server.NextFrame(() =>
         {
-            username = player.PlayerName,
-            steamid = steamId.SteamId2
-        };
-
-        _loginTime[player.Index] = DateTime.Now;
+            _users[steamId.SteamId64] = new User
+            {
+                username = player.PlayerName,
+                steamid = steamId.SteamId2
+            };
+            _loginTime[player.Index] = DateTime.Now;
+        });
     }
 
     private string GetTextInsideQuotes(string input)
@@ -165,23 +179,20 @@ public class Ranks : BasePlugin
         return string.Empty;
     }
 
-    private async Task OnClientAuthorizedAsync(int slot, SteamID steamId)
+    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
     {
-        var player = Utilities.GetPlayerFromSlot(slot);
-
-        var userExists = await UserExists(steamId);
+        var userExists = await UserExists(steamId.SteamId2);
 
         if (!userExists)
-            if (!player.IsBot)
-                await AddUserToDb(player);
+            await AddUserToDb(playerName, steamId.SteamId2);
 
-        var user = await GetUserStatsFromDb(steamId);
+        var user = await GetUserStatsFromDb(steamId.SteamId2);
 
         if (user == null) return;
 
         _users[steamId.SteamId64] = new User
         {
-            username = player.PlayerName,
+            username = playerName,
             steamid = user.steamid,
             experience = user.experience,
             score = user.score,
@@ -417,10 +428,12 @@ public class Ranks : BasePlugin
 
             if (!_users.TryGetValue(players.SteamID, out var user)) return;
 
-            Task.Run(() => UpdateUserStatsDb(new SteamID(players.SteamID), user, GetTotalTime(entityIndex)));
+            var steamId = new SteamID(players.SteamID);
+            var totalTime = GetTotalTime(entityIndex);
+            Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
         }
 
-        AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
+        AddTimer(.5f, () => ShowTopPlayers(controller));
     }
 
     private async Task ShowTopPlayers(CCSPlayerController controller)
@@ -440,9 +453,8 @@ public class Ranks : BasePlugin
             {
                 var level = GetLevelFromExperience(player.experience);
 
-                controller.PrintToChat(
-                    $"{rank}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
-                rank ++;
+                Server.NextFrame(() => controller.PrintToChat(
+                    $"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}"));
             }
         }
         catch (Exception e)
@@ -456,7 +468,9 @@ public class Ranks : BasePlugin
     {
         if (controller == null) return;
 
-        Task.Run(() => GetUserStats(controller));
+        var steamId = new SteamID(controller.SteamID);
+        var index = controller.Index;
+        Task.Run(() => GetUserStats(controller, steamId, index));
     }
 
     [ConsoleCommand("css_rank_tag")]
@@ -479,37 +493,42 @@ public class Ranks : BasePlugin
         player.Clan = GetLevelFromExperience(user.experience).Name;
     }
 
-    private async void GetUserStats(CCSPlayerController controller)
+    private async Task GetUserStats(CCSPlayerController controller, SteamID steamId, uint entityIndex)
     {
-        if (!_users.TryGetValue(controller.SteamID, out var user)) return;
+        if (!_users.TryGetValue(steamId.SteamId64, out var user)) return;
 
-        var index = controller.Index;
+        var index = entityIndex;
 
         var totalPlayTime = TimeSpan.FromSeconds(user.play_time);
         var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
         var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
-        var getPlayerTop = await GetPlayerRankAndTotal(new SteamID(controller.SteamID));
+        var getPlayerTop = await GetPlayerRankAndTotal(steamId.SteamId2);
 
-        SendMessageToSpecificChat(controller, "-------------------------------------------------------------------");
-        if (getPlayerTop != null)
+        Server.NextFrame(() =>
         {
             SendMessageToSpecificChat(controller,
-                $" \x08 Your position in the top: \x0C#{getPlayerTop.PlayerRank}/{getPlayerTop.TotalPlayers}");
-        }
+                "-------------------------------------------------------------------");
+            if (getPlayerTop != null)
+            {
+                SendMessageToSpecificChat(controller,
+                    $" \x08 Your position in the top: \x0C#{getPlayerTop.PlayerRank}/{getPlayerTop.TotalPlayers}");
+            }
 
-        SendMessageToSpecificChat(controller,
-            $" \x08 Experience: \x04{user.experience} \x08| Score: \x04{user.score}");
-        SendMessageToSpecificChat(controller,
-            $" \x08 Kills: \x04{user.kills} \x08| Deaths: \x04{user.deaths} \x08| Assists: \x04{user.assists}");
-        SendMessageToSpecificChat(controller,
-            $" \x08 Headshot Kills: \x04{user.headshot_kills} \x08| Noscope Kills: \x04{user.noscope_kills}");
-        SendMessageToSpecificChat(controller,
-            $" \x08 Damage: \x04{user.damage} \x08| Mvp: \x04{user.mvp}");
-        SendMessageToSpecificChat(controller,
-            $" \x08 Percentage Headshot: \x04{user.percentage_headshot:0.00} \x08| KD: \x04{user.kdr:0.00}");
-        SendMessageToSpecificChat(controller,
-            $" \x08 Current Play Time: \x04{currentPlayTime} \x08| Total Play Time: \x04{formattedTime}");
-        SendMessageToSpecificChat(controller, "-------------------------------------------------------------------");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Experience: \x04{user.experience} \x08| Score: \x04{user.score}");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Kills: \x04{user.kills} \x08| Deaths: \x04{user.deaths} \x08| Assists: \x04{user.assists}");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Headshot Kills: \x04{user.headshot_kills} \x08| Noscope Kills: \x04{user.noscope_kills}");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Damage: \x04{user.damage} \x08| Mvp: \x04{user.mvp}");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Percentage Headshot: \x04{user.percentage_headshot:0.00} \x08| KD: \x04{user.kdr:0.00}");
+            SendMessageToSpecificChat(controller,
+                $" \x08 Current Play Time: \x04{currentPlayTime} \x08| Total Play Time: \x04{formattedTime}");
+            SendMessageToSpecificChat(controller,
+                "-------------------------------------------------------------------");
+        });
     }
 
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
@@ -648,7 +667,7 @@ public class Ranks : BasePlugin
         }
     }
 
-    private async Task<PlayerStats?> GetPlayerRankAndTotal(SteamID steamId)
+    private async Task<PlayerStats?> GetPlayerRankAndTotal(string steamId)
     {
         try
         {
@@ -661,7 +680,7 @@ public class Ranks : BasePlugin
             var totalPlayersQuery = "SELECT COUNT(*) AS TotalPlayers FROM ranks_users;";
 
             var playerRank =
-                await connection.QueryFirstOrDefaultAsync<int>(rankQuery, new { SteamId = steamId.SteamId2 });
+                await connection.QueryFirstOrDefaultAsync<int>(rankQuery, new { SteamId = steamId });
             var totalPlayers = await connection.QueryFirstOrDefaultAsync<int>(totalPlayersQuery);
 
             return new PlayerStats { PlayerRank = playerRank, TotalPlayers = totalPlayers };
@@ -673,7 +692,7 @@ public class Ranks : BasePlugin
         }
     }
 
-    private async Task AddUserToDb(CCSPlayerController player)
+    private async Task AddUserToDb(string playerName, string steamId)
     {
         try
         {
@@ -682,8 +701,8 @@ public class Ranks : BasePlugin
 
             var parameters = new User
             {
-                username = player.PlayerName,
-                steamid = new SteamID(player.SteamID).SteamId2,
+                username = playerName,
+                steamid = steamId,
                 experience = 0,
                 score = 0,
                 kills = 0,
@@ -795,14 +814,14 @@ public class Ranks : BasePlugin
         return totalTime;
     }
 
-    private async Task<User?> GetUserStatsFromDb(SteamID steamId)
+    private async Task<User?> GetUserStatsFromDb(string steamId)
     {
         try
         {
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
             var user = await connection.QueryFirstOrDefaultAsync<User>(
-                "SELECT * FROM `ranks_users` WHERE `steamid` = @SteamId", new { SteamId = steamId.SteamId2 });
+                "SELECT * FROM `ranks_users` WHERE `steamid` = @SteamId", new { SteamId = steamId });
 
             return user;
         }
@@ -901,7 +920,7 @@ public class Ranks : BasePlugin
         return config;
     }
 
-    private async Task<bool> UserExists(SteamID steamId)
+    private async Task<bool> UserExists(string steamId)
     {
         try
         {
@@ -910,7 +929,7 @@ public class Ranks : BasePlugin
 
             var exists = await connection.ExecuteScalarAsync<bool>(
                 "SELECT EXISTS(SELECT 1 FROM `ranks_users` WHERE `steamid` = @SteamId)",
-                new { SteamId = steamId.SteamId2 });
+                new { SteamId = steamId });
 
             return exists;
         }
