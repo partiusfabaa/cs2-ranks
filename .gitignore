@@ -34,21 +34,9 @@ Ranks/obj/release/net7.0/Ranks.AssemblyInfo.cs
 Ranks/obj/release/net7.0/Ranks.GlobalUsings.g.cs
 Ranks/obj/Ranks.csproj.EntityFrameworkCore.targets
 Ranks.zip
-LevelRanks/.idea/.idea.Ranks.dir/.idea/discord-ij.xml
-LevelRanks/.idea/.idea.Ranks.dir/.idea/indexLayout.xml
-LevelRanks/.idea/.idea.Ranks.dir/.idea/projectSettingsUpdater.xml
-LevelRanks/.idea/.idea.Ranks.dir/.idea/vcs.xml
 *.xml
 Ranks/EventsExpSettings.cs
-LevelRanks/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-LevelRanks/obj/Debug/net7.0/LevelRanks.AssemblyInfo.cs
-LevelRanks/obj/Debug/net7.0/LevelRanks.GlobalUsings.g.cs
-LevelRanks/obj/LevelRanks.csproj.nuget.g.props
 *.targets
-LevelRanks/obj/release/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-LevelRanks/obj/release/net7.0/LevelRanks.AssemblyInfo.cs
-LevelRanks/obj/release/net7.0/LevelRanks.GlobalUsings.g.cs
-LevelRanks/obj/rider.project.restore.info
 Ranks/obj/rider.project.restore.info
 Ranks/obj/RanksRise.csproj.nuget.g.props
 Ranks/obj/Debug/net7.0/RanksRise.GlobalUsings.g.cs
@@ -56,3 +44,11 @@ Ranks/obj/Debug/net7.0/RanksRise.AssemblyInfo.cs
 Ranks/obj/Debug/net7.0/Ranks.GlobalUsings.g.cs
 Ranks/obj/Debug/net7.0/Ranks.AssemblyInfo.cs
 Ranks/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
+Ranks for the LR database/obj/Debug/net7.0/Ranks.AssemblyInfo.cs
+Ranks for the LR database/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
+Ranks for the LR database/obj/Debug/net7.0/Ranks.GlobalUsings.g.cs
+Ranks for the LR database/obj/Ranks.csproj.nuget.g.props
+Ranks for the LR database/obj/release/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
+Ranks for the LR database/obj/release/net7.0/Ranks.AssemblyInfo.cs
+Ranks for the LR database/obj/release/net7.0/Ranks.GlobalUsings.g.cs
+Ranks for the LR database/obj/rider.project.restore.info
