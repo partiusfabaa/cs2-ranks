@@ -14,7 +14,7 @@ using MySqlConnector;
 
 namespace Ranks;
 
-[MinimumApiVersion(95)]
+[MinimumApiVersion(107)]
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
@@ -417,62 +417,6 @@ public class Ranks : BasePlugin
         });
     }
 
-    [ConsoleCommand("css_top")]
-    public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
-    {
-        if (controller == null) return;
-
-        foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
-        {
-            var entityIndex = players.Index;
-
-            if (!_users.TryGetValue(players.SteamID, out var user)) return;
-
-            var steamId = new SteamID(players.SteamID);
-            var totalTime = GetTotalTime(entityIndex);
-            Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
-        }
-
-        AddTimer(.5f, () => ShowTopPlayers(controller));
-    }
-
-    private async Task ShowTopPlayers(CCSPlayerController controller)
-    {
-        try
-        {
-            await using var connection = new MySqlConnection(_dbConnectionString);
-            await connection.OpenAsync();
-
-            var query = @"
-        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
-
-            var topPlayers = await connection.QueryAsync<User>(query);
-
-            var rank = 1;
-            foreach (var player in topPlayers)
-            {
-                var level = GetLevelFromExperience(player.experience);
-
-                Server.NextFrame(() => controller.PrintToChat(
-                    $"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}"));
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-    }
-
-    [ConsoleCommand("css_rank")]
-    public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
-    {
-        if (controller == null) return;
-
-        var steamId = new SteamID(controller.SteamID);
-        var index = controller.Index;
-        Task.Run(() => GetUserStats(controller, steamId, index));
-    }
-
     [ConsoleCommand("css_rank_tag")]
     public void ToggleRank(CCSPlayerController? player, CommandInfo info)
     {
@@ -492,6 +436,16 @@ public class Ranks : BasePlugin
         SendMessageToSpecificChat(player, "Tag\x06 enabled");
         player.Clan = GetLevelFromExperience(user.experience).Name;
     }
+    
+    [ConsoleCommand("css_rank")]
+    public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        var steamId = new SteamID(controller.SteamID);
+        var index = controller.Index;
+        Task.Run(() => GetUserStats(controller, steamId, index));
+    }
 
     private async Task GetUserStats(CCSPlayerController controller, SteamID steamId, uint entityIndex)
     {
@@ -506,6 +460,8 @@ public class Ranks : BasePlugin
 
         Server.NextFrame(() =>
         {
+            if (!controller.IsValid) return;
+            
             SendMessageToSpecificChat(controller,
                 "-------------------------------------------------------------------");
             if (getPlayerTop != null)
@@ -529,6 +485,57 @@ public class Ranks : BasePlugin
             SendMessageToSpecificChat(controller,
                 "-------------------------------------------------------------------");
         });
+    }
+    
+    [ConsoleCommand("css_top")]
+    public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
+        {
+            var entityIndex = players.Index;
+
+            if (!_users.TryGetValue(players.SteamID, out var user)) return;
+
+            var steamId = new SteamID(players.SteamID);
+            var totalTime = GetTotalTime(entityIndex);
+            Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
+        }
+
+        AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
+    }
+
+    private async Task ShowTopPlayers(CCSPlayerController controller)
+    {
+        try
+        {
+            await using var connection = new MySqlConnection(_dbConnectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
+
+            var topPlayers = await connection.QueryAsync<User>(query);
+
+            var rank = 1;
+            foreach (var player in topPlayers)
+            {
+                var level = GetLevelFromExperience(player.experience);
+
+                Server.NextFrame(() =>
+                {
+                    if (!controller.IsValid) return;
+
+                    controller.PrintToChat(
+                        $"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
+                });
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
