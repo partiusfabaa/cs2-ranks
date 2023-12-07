@@ -88,3 +88,7 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 - Database: "DATABASE"
 - User: "USER"
 - Password: "PASSWORD"
+
+## Color Tags
+
+`{DEFAULT}`, `{WHITE}`, `{DARKRED}`, `{GREEN}`, `{LIGHTYELLOW}`, `{LIGHTBLUE}`, `{OLIVE}`, `{LIME}`, `{RED}`, `{LIGHTPURPLE}`, `{PURPLE}`, `{GREY}`, `{YELLOW}`, `{GOLD}`, `{SILVER}`, `{BLUE}`, `{DARKBLUE}`, `{BLUEGREY}`, `{MAGENTA}`, `{LIGHTRED}`, `{ORANGE}`
