@@ -20,7 +20,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.1";
+    public override string ModuleVersion => "v1.0.5";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -58,7 +58,7 @@ public class Ranks : BasePlugin
 
         RegisterEventHandler<EventRoundMvp>(EventRoundMvp);
         RegisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
-        RegisterEventHandler<EventWeaponFire>((@event, info) =>
+        RegisterEventHandler<EventWeaponFire>((@event, _) =>
         {
             var player = @event.Userid;
             if (player != null)
@@ -66,7 +66,7 @@ public class Ranks : BasePlugin
 
             return HookResult.Continue;
         });
-        RegisterEventHandler<EventPlayerHurt>((@event, info) =>
+        RegisterEventHandler<EventPlayerHurt>((@event, _) =>
         {
             var attacker = @event.Attacker;
             var player = @event.Userid;
@@ -279,8 +279,7 @@ public class Ranks : BasePlugin
                     if (@event.Noscope)
                         UpdateUserStatsLocal(attacker, "XP for murder without a scope", exp: additionally.Noscope);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, "XP for a murder to the head", exp: additionally.Headshot,
-                            isHeadshot: @event.Headshot);
+                        UpdateUserStatsLocal(attacker, "XP for a murder to the head", exp: additionally.Headshot);
                     if (@event.Attackerblind)
                         UpdateUserStatsLocal(attacker, "XP for the blind murder", exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
@@ -310,7 +309,7 @@ public class Ranks : BasePlugin
 
     private void UpdateUserStatsLocal(CCSPlayerController player, string msg = "",
         int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
-        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0, bool isHeadshot = false)
+        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
     {
         if (_config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
@@ -425,15 +424,12 @@ public class Ranks : BasePlugin
         if (controller == null) return;
 
         var steamId = new SteamID(controller.SteamID);
-        var index = controller.Index;
-        Task.Run(() => GetUserStats(controller, steamId, index));
+        Task.Run(() => GetUserStats(controller, steamId));
     }
 
-    private async Task GetUserStats(CCSPlayerController controller, SteamID steamId, uint entityIndex)
+    private async Task GetUserStats(CCSPlayerController controller, SteamID steamId)
     {
         if (!_users.TryGetValue(steamId.SteamId64, out var user)) return;
-
-        var index = entityIndex;
 
         var totalTime = TimeSpan.FromSeconds(user.playtime);
         //var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
@@ -502,8 +498,8 @@ public class Ranks : BasePlugin
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
 
-            var query = @"
-        SELECT DISTINCT * FROM `lvl_base` ORDER BY `value` DESC LIMIT 10;";
+            var query = $@"
+        SELECT DISTINCT * FROM `{_config.TableName}` ORDER BY `value` DESC LIMIT 10;";
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
@@ -616,9 +612,9 @@ public class Ranks : BasePlugin
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
 
-            var updateQuery = @"
+            var updateQuery = $@"
         UPDATE 
-            `lvl_base` 
+            `{_config.TableName}` 
         SET 
             `steam` = @SteamId,
             `name` = @Username,
@@ -669,9 +665,9 @@ public class Ranks : BasePlugin
             await connection.OpenAsync();
 
             var rankQuery =
-                "SELECT COUNT(*) + 1 AS PlayerRank FROM lvl_base WHERE value > (SELECT value FROM lvl_base WHERE steam = @SteamId);";
+                $"SELECT COUNT(*) + 1 AS PlayerRank FROM {_config.TableName} WHERE value > (SELECT value FROM {_config.TableName} WHERE steam = @SteamId);";
 
-            var totalPlayersQuery = "SELECT COUNT(*) AS TotalPlayers FROM lvl_base;";
+            var totalPlayersQuery = $"SELECT COUNT(*) AS TotalPlayers FROM {_config.TableName};";
 
             var playerRank =
                 await connection.QueryFirstOrDefaultAsync<int>(rankQuery,
@@ -712,8 +708,8 @@ public class Ranks : BasePlugin
                 lastconnect = 0,
             };
 
-            var query = @"
-                INSERT INTO `lvl_base` 
+            var query = $@"
+                INSERT INTO `{_config.TableName}` 
                 (`steam`, `name`, `value`, `rank`, `kills`, `deaths`, `shoots`, `hits`, `headshots`, `assists`, `round_win`, `round_lose`, `playtime`, `lastconnect`) 
                 VALUES 
                 (@steam, @name, @value, @rank, @kills, @deaths, @shoots, @hits, @headshots, @assists, @round_win, @round_lose, @playtime, @lastconnect);";
@@ -726,7 +722,7 @@ public class Ranks : BasePlugin
         }
     }
 
-    static async Task ResetPlayerData(string steamId)
+    private async Task ResetPlayerData(string steamId)
     {
         try
         {
@@ -734,7 +730,7 @@ public class Ranks : BasePlugin
             dbConnection.Open();
 
             var resetPlayerQuery = $@"
-                UPDATE lvl_base
+                UPDATE {_config.TableName}
                 SET
                     value = 0,
                     rank = 0,
@@ -758,15 +754,15 @@ public class Ranks : BasePlugin
         }
     }
 
-    static async Task CreateTable()
+    private async Task CreateTable()
     {
         try
         {
             await using var dbConnection = new MySqlConnection(_dbConnectionString);
             dbConnection.Open();
 
-            var createLrTable = @"
-            CREATE TABLE IF NOT EXISTS `lvl_base` (
+            var createLrTable = $@"
+            CREATE TABLE IF NOT EXISTS `{_config.TableName}` (
                 `steam` VARCHAR(255) NOT NULL,
                 `name` VARCHAR(255) NOT NULL,
                 `value` BIGINT NOT NULL,
@@ -806,9 +802,9 @@ public class Ranks : BasePlugin
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
             var user = await connection.QueryFirstOrDefaultAsync<User>(
-                "SELECT * FROM `lvl_base` WHERE `steam` = @SteamId",
+                $"SELECT * FROM `{_config.TableName}` WHERE `steam` = @SteamId",
                 new { SteamId = ReplaceFirstCharacter(steamId, '1') });
-
+            
             return user;
         }
         catch (Exception e)
@@ -851,6 +847,7 @@ public class Ranks : BasePlugin
     {
         var config = new Config
         {
+            TableName = "lvl_base",
             Prefix = "[ {BLUE}Ranks {DEFAULT}]",
             EnableScoreBoardRanks = true,
             UseCommandWithoutPrefix = true,
@@ -914,7 +911,7 @@ public class Ranks : BasePlugin
             await connection.OpenAsync();
 
             var exists = await connection.ExecuteScalarAsync<bool>(
-                "SELECT EXISTS(SELECT 1 FROM `lvl_base` WHERE `steam` = @SteamId)",
+                $"SELECT EXISTS(SELECT 1 FROM `{_config.TableName}` WHERE `steam` = @SteamId)",
                 new { SteamId = ReplaceFirstCharacter(steamId, '1') });
 
             return exists;
@@ -991,6 +988,7 @@ public class PlayerStats
 
 public class Config
 {
+    public required string TableName { get; init; }
     public required string Prefix { get; init; }
     public bool EnableScoreBoardRanks { get; init; }
     public bool UseCommandWithoutPrefix { get; init; }
