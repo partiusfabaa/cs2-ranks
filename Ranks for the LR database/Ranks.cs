@@ -106,7 +106,7 @@ public class Ranks : BasePlugin
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
 
-                player.Clan = $"[{GetLevelFromExperience(user.value).Name}]";
+                player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]";
             }
         }, TimerFlags.REPEAT);
         AddTimer(300.0f, () =>
@@ -372,12 +372,14 @@ public class Ranks : BasePlugin
                 if (newLevel.Level != user.rank)
                 {
                     var isUpRank = newLevel.Level > user.rank;
+
+                    var newLevelName = ReplaceColorTags(newLevel.Name);
                     SendMessageToSpecificChat(player, isUpRank
-                        ? $"Congratulations! You've reached level \x06[ {newLevel.Name} ]"
-                        : $"Oh no! Your level has decreased to \x02[ {newLevel.Name} ]");
+                        ? $"Congratulations! You've reached level \x06[ {newLevelName} \x06]"
+                        : $"Oh no! Your level has decreased to \x02[ {newLevelName} \x02]");
 
                     if (_config.EnableScoreBoardRanks)
-                        player.Clan = $"[{newLevel.Name}]";
+                        player.Clan = $"[{Regex.Replace(newLevel.Name, @"\{[A-Za-z]+}", "")}]";
 
                     user.rank = newLevel.Level;
                 }
@@ -456,9 +458,9 @@ public class Ranks : BasePlugin
             if (getPlayerTop != null)
                 SendMessageToSpecificChat(controller,
                     $" \x08 Your position in the top: \x0C#{getPlayerTop.PlayerRank}/{getPlayerTop.TotalPlayers}");
-            
+
             SendMessageToSpecificChat(controller,
-                $" \x08 Experience: \x04{user.value}");
+                $" \x08 Experience: \x04{user.value}\x08 (Rank:\x04 {ReplaceColorTags(GetLevelFromExperience(user.value).Name)}\x08)");
             SendMessageToSpecificChat(controller,
                 $" \x08 Kills: \x04{user.kills} \x08(Headshot:\x04 {user.headshots}\x08) | Deaths: \x04{user.deaths} \x08| Assists: \x04{user.assists}");
             SendMessageToSpecificChat(controller,
@@ -503,17 +505,16 @@ public class Ranks : BasePlugin
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
+            Server.NextFrame(() => controller.PrintToChat("[\x0C Top Players\x01 ]"));
             var rank = 1;
             foreach (var player in topPlayers)
             {
-                var level = GetLevelFromExperience(player.value);
-
                 Server.NextFrame(() =>
                 {
                     if (!controller.IsValid) return;
 
                     controller.PrintToChat(
-                        $"{rank ++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{level.Name}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
+                        $"{rank ++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
                 });
             }
         }
@@ -804,7 +805,7 @@ public class Ranks : BasePlugin
             var user = await connection.QueryFirstOrDefaultAsync<User>(
                 $"SELECT * FROM `{_config.TableName}` WHERE `steam` = @SteamId",
                 new { SteamId = ReplaceFirstCharacter(steamId, '1') });
-            
+
             return user;
         }
         catch (Exception e)
@@ -959,13 +960,19 @@ public class Ranks : BasePlugin
     {
         string[] colorPatterns =
         {
-            "{DEFAULT}", "{RED}", "{LIGHTPURPLE}", "{GREEN}", "{LIME}", "{LIGHTGREEN}", "{LIGHTRED}", "{GRAY}",
-            "{LIGHTOLIVE}", "{OLIVE}", "{LIGHTBLUE}", "{BLUE}", "{PURPLE}", "{GRAYBLUE}"
+            "{DEFAULT}", "{WHITE}", "{DARKRED}", "{GREEN}", "{LIGHTYELLOW}", "{LIGHTBLUE}", "{OLIVE}", "{LIME}",
+            "{RED}", "{LIGHTPURPLE}", "{PURPLE}", "{GREY}", "{YELLOW}", "{GOLD}", "{SILVER}", "{BLUE}", "{DARKBLUE}",
+            "{BLUEGREY}", "{MAGENTA}", "{LIGHTRED}", "{ORANGE}"
         };
+
         string[] colorReplacements =
         {
-            "\x01", "\x02", "\x03", "\x04", "\x05", "\x06", "\x07", "\x08", "\x09", "\x10", "\x0B", "\x0C", "\x0E",
-            "\x0A"
+            $"{ChatColors.Default}", $"{ChatColors.White}", $"{ChatColors.Darkred}", $"{ChatColors.Green}",
+            $"{ChatColors.LightYellow}", $"{ChatColors.LightBlue}", $"{ChatColors.Olive}", $"{ChatColors.Lime}",
+            $"{ChatColors.Red}", $"{ChatColors.LightPurple}", $"{ChatColors.Purple}", $"{ChatColors.Grey}",
+            $"{ChatColors.Yellow}", $"{ChatColors.Gold}", $"{ChatColors.Silver}", $"{ChatColors.Blue}",
+            $"{ChatColors.DarkBlue}", $"{ChatColors.BlueGrey}", $"{ChatColors.Magenta}", $"{ChatColors.LightRed}",
+            $"{ChatColors.Orange}"
         };
 
         for (var i = 0; i < colorPatterns.Length; i ++)
