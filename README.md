@@ -52,6 +52,7 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 ## Other
 
+- **TableName**: "lvl_base",    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; // Database table name
 - **Prefix**: "[ {BLUE}Ranks {DEFAULT}]"    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Chat prefix
 - **EnableScoreBoardRanks**: true    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is tag included in the scoreboard? true - yes | false - no
 - **UseCommandWithoutPrefix**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is it possible to write `top` and `rank` without the prefix? true - yes | false - no
