@@ -26,9 +26,9 @@ public class Ranks : BasePlugin
 
     private Config _config = null!;
 
-    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers];
+    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers + 1];
     private readonly Dictionary<ulong, User> _users = new();
-    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers];
+    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers + 1];
 
     private enum PrintTo
     {
@@ -307,11 +307,11 @@ public class Ranks : BasePlugin
         return HookResult.Continue;
     }
 
-    private void UpdateUserStatsLocal(CCSPlayerController player, string msg = "",
+    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
         int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
         int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
     {
-        if (_config.MinPlayers > PlayersCount() ||
+        if (player == null || _config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
                 .WarmupPeriod) return;
 
@@ -436,7 +436,7 @@ public class Ranks : BasePlugin
         var totalTime = TimeSpan.FromSeconds(user.playtime);
         //var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
         var formattedTime =
-            $"{(totalTime.Days >= 0 ? $"\x04{totalTime.Days}\x08 Days, " : "")}" +
+            $"{(totalTime.Days > 0 ? $"\x04{totalTime.Days}\x08 Days, " : "")}" +
             $"{(totalTime.Hours > 0 ? $"\x04{totalTime.Hours}\x08 Hours, " : "")}" +
             $"{(totalTime.Minutes > 0 ? $"\x04{totalTime.Minutes}\x08 Minutes, " : "")}" +
             $"{(totalTime.Seconds > 0 ? $"\x04{totalTime.Seconds}\x08 Seconds" : "")}";
@@ -695,7 +695,7 @@ public class Ranks : BasePlugin
             {
                 steam = ReplaceFirstCharacter(steamId, '1'),
                 name = playerName,
-                value = 0,
+                value = _config.InitialExperiencePoints,
                 rank = 0,
                 kills = 0,
                 deaths = 0,
@@ -854,6 +854,7 @@ public class Ranks : BasePlugin
             UseCommandWithoutPrefix = true,
             ShowExperienceMessages = true,
             MinPlayers = 4,
+            InitialExperiencePoints = 500,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
@@ -981,9 +982,9 @@ public class Ranks : BasePlugin
         return input;
     }
 
-    private int PlayersCount()
+    private static int PlayersCount()
     {
-        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true });
+        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true, TeamNum: not (0 or 1) });
     }
 }
 
@@ -1001,8 +1002,9 @@ public class Config
     public bool UseCommandWithoutPrefix { get; init; }
     public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
-    public EventsExpSettings Events { get; set; } = null!;
-    public Dictionary<string, int> Weapon { get; set; } = null!;
-    public Dictionary<string, int> Ranks { get; set; } = null!;
-    public RankDb Connection { get; set; } = null!;
+    public int InitialExperiencePoints { get; init; }
+    public EventsExpSettings Events { get; init; } = null!;
+    public Dictionary<string, int> Weapon { get; init; } = null!;
+    public Dictionary<string, int> Ranks { get; init; } = null!;
+    public RankDb Connection { get; init; } = null!;
 }

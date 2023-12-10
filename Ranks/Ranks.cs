@@ -26,9 +26,9 @@ public class Ranks : BasePlugin
 
     private Config _config = null!;
 
-    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers];
+    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers + 1];
     private readonly Dictionary<ulong, User> _users = new();
-    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers];
+    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers + 1];
 
     private enum PrintTo
     {
@@ -291,11 +291,11 @@ public class Ranks : BasePlugin
         return HookResult.Continue;
     }
 
-    private void UpdateUserStatsLocal(CCSPlayerController player, string msg = "",
+    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
         int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
         int nzKills = 0, int dmg = 0, int mvp = 0, int headKills = 0, bool headshot = false)
     {
-        if (_config.MinPlayers > PlayersCount() ||
+        if (player == null || _config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
                 .WarmupPeriod) return;
 
@@ -705,12 +705,12 @@ public class Ranks : BasePlugin
         {
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
-
+            
             var parameters = new User
             {
                 username = playerName,
                 steamid = steamId,
-                experience = 0,
+                experience = _config.InitialExperiencePoints,
                 score = 0,
                 kills = 0,
                 deaths = 0,
@@ -877,6 +877,7 @@ public class Ranks : BasePlugin
             UseCommandWithoutPrefix = true,
             ShowExperienceMessages = true,
             MinPlayers = 4,
+            InitialExperiencePoints = 500,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
@@ -994,9 +995,9 @@ public class Ranks : BasePlugin
         return input;
     }
 
-    private int PlayersCount()
+    private static int PlayersCount()
     {
-        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true });
+        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true, TeamNum: not (0 or 1) });
     }
 }
 
@@ -1013,8 +1014,9 @@ public class Config
     public bool UseCommandWithoutPrefix { get; init; }
     public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
-    public EventsExpSettings Events { get; set; } = null!;
-    public Dictionary<string, int> Weapon { get; set; } = null!;
-    public Dictionary<string, int> Ranks { get; set; } = null!;
-    public RankDb Connection { get; set; } = null!;
+    public int InitialExperiencePoints { get; init; }
+    public EventsExpSettings Events { get; init; } = null!;
+    public Dictionary<string, int> Weapon { get; init; } = null!;
+    public Dictionary<string, int> Ranks { get; init; } = null!;
+    public RankDb Connection { get; init; } = null!;
 }
