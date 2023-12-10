@@ -57,7 +57,8 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 - **EnableScoreBoardRanks**: true    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is tag included in the scoreboard? true - yes | false - no
 - **UseCommandWithoutPrefix**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is it possible to write `top` and `rank` without the prefix? true - yes | false - no
 - **ShowExperienceMessages**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Do I show the player chat messages how much experience he has gained? true - yes | false - no.
-- **MinPlayers**: 4    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; //Minimum number of players to gain experience
+- **MinPlayers**: 4    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Minimum number of players to gain experience
+- **InitialExperiencePoints**: 1000     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // How much experience a player will have when they first log into the server
 
 ## Events
 
