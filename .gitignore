@@ -25,7 +25,6 @@ Ranks/obj/project.assets.json
 Ranks/obj/project.packagespec.json
 Ranks/obj/rider.project.restore.info
 *.dll
-*.json
 *.pdb
 *.CopyComplete
 *.txt
@@ -55,3 +54,17 @@ Ranks for the LR database/obj/rider.project.restore.info
 Ranks for the LR database/obj/rider.project.model.nuget.info
 Ranks/obj/rider.project.model.nuget.info
 Ranks for the LR database/bin/release/net7.0/publish/Ranks for the LR database.zip
+Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
+Ranks for the LR database/bin/release/net7.0/publish/Ranks.deps.json
+Ranks for the LR database/bin/release/net7.0/Ranks.deps.json
+Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ru.json
+Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/en.json
+Ranks for the LR database/obj/project.assets.json
+Ranks for the LR database/obj/project.packagespec.json
+Ranks for the LR database/obj/Ranks.csproj.nuget.dgspec.json
+Ranks for the LR database/bin/release/net7.0/publish/Ranks-for-the-LR-database.rar
+Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
+Ranks/bin/release/net7.0/publish/Ranks.deps.json
+Ranks/bin/release/net7.0/Ranks.deps.json
+Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/en.json
+Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ru.json

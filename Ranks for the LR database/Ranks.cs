@@ -18,7 +18,7 @@ namespace Ranks;
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
-    public override string ModuleDescription => "Adds a rating system to the server";
+    public override string ModuleDescription => "[LR] Adds a rating system to the server";
     public override string ModuleName => "Ranks";
     public override string ModuleVersion => "v1.0.5";
 
@@ -69,10 +69,11 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventPlayerHurt>((@event, _) =>
         {
             var attacker = @event.Attacker;
-            var player = @event.Userid;
 
-            if (attacker != null && player != null && attacker != player)
+            if (attacker is { IsValid: true, IsBot: false })
+            {
                 UpdateUserStatsLocal(attacker, exp: -1, shoots: 1);
+            }
 
             return HookResult.Continue;
         });
@@ -154,11 +155,11 @@ public class Ranks : BasePlugin
                 switch (msg)
                 {
                     case "confirm":
-                        SendMessageToSpecificChat(player, "The rank has been successfully reset!");
+                        SendMessageToSpecificChat(player, Localizer["reset.Successfully"]);
                         Task.Run(() => ResetRank(player));
                         return HookResult.Handled;
                     case "cancel":
-                        SendMessageToSpecificChat(player, "Rank reset canceled. Operation aborted.");
+                        SendMessageToSpecificChat(player, Localizer["reset.Aborted"]);
                         return HookResult.Handled;
                 }
             }
@@ -257,10 +258,10 @@ public class Ranks : BasePlugin
             if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
                 return HookResult.Continue;
 
-            if (attacker.PlayerName != victim.PlayerName)
+            if (attacker.PlayerName != victim.PlayerName && !_config.TeamKillAllowed)
             {
                 if (attacker.TeamNum == victim.TeamNum)
-                    UpdateUserStatsLocal(attacker, $"XP for killing an ally",
+                    UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
                         exp: configEvent.KillingAnAlly, increase: false);
                 else
                 {
@@ -269,21 +270,21 @@ public class Ranks : BasePlugin
                     if (Regex.Match(weaponName, "knife").Success)
                         weaponName = "knife";
 
-                    UpdateUserStatsLocal(attacker, "XP per kill", exp: configEvent.Kills, kills: 1);
+                    UpdateUserStatsLocal(attacker, Localizer["PerKill"], exp: configEvent.Kills, kills: 1);
 
                     if (@event.Penetrated > 0)
-                        UpdateUserStatsLocal(attacker, "XP for killing through the wall",
+                        UpdateUserStatsLocal(attacker, Localizer["KillingThroughWall"],
                             exp: additionally.Penetrated);
                     if (@event.Thrusmoke)
-                        UpdateUserStatsLocal(attacker, "XP for murder through smoke", exp: additionally.Thrusmoke);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderThroughSmoke"], exp: additionally.Thrusmoke);
                     if (@event.Noscope)
-                        UpdateUserStatsLocal(attacker, "XP for murder without a scope", exp: additionally.Noscope);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, "XP for a murder to the head", exp: additionally.Headshot);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot);
                     if (@event.Attackerblind)
-                        UpdateUserStatsLocal(attacker, "XP for the blind murder", exp: additionally.Attackerblind);
+                        UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
-                        UpdateUserStatsLocal(attacker, $"XP for murder with a {weaponName}", exp: exp);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderWith", weaponName], exp: exp);
                 }
             }
         }
@@ -293,7 +294,7 @@ public class Ranks : BasePlugin
             if (victim.IsBot || victim is { PlayerName: null })
                 return HookResult.Continue;
 
-            UpdateUserStatsLocal(victim, "XP per death \x02:(\x08", exp: configEvent.Deaths, increase: false,
+            UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false,
                 death: 1);
         }
 
@@ -301,7 +302,7 @@ public class Ranks : BasePlugin
         {
             if (assister.IsBot || assister is { PlayerPawn: null }) return HookResult.Continue;
 
-            UpdateUserStatsLocal(assister, "XP for assisting in a kill", exp: configEvent.Assists, assist: 1);
+            UpdateUserStatsLocal(assister, Localizer["AssistingInAKill"], exp: configEvent.Assists, assist: 1);
         }
 
         return HookResult.Continue;
@@ -340,7 +341,7 @@ public class Ranks : BasePlugin
         var nextXp = GetExperienceToNextLevel(player);
         if (exp != 0 && _config.ShowExperienceMessages)
             Server.NextFrame(() => SendMessageToSpecificChat(player,
-                $"{(increase ? "\x0C+" : "\x02-")}{exp} \x08{msg} {(nextXp == 0 ? "" : $"(Next level: \x06{nextXp}\x08)")}"));
+                $"{(increase ? "\x0C+" : "\x02-")}{exp} XP \x08{msg} {(nextXp == 0 ? string.Empty : $"{Localizer["next_level", nextXp]}")}"));
     }
 
     private (string Name, int Level) GetLevelFromExperience(long experience)
@@ -375,8 +376,8 @@ public class Ranks : BasePlugin
 
                     var newLevelName = ReplaceColorTags(newLevel.Name);
                     SendMessageToSpecificChat(player, isUpRank
-                        ? $"Congratulations! You've reached level \x06[ {newLevelName} \x06]"
-                        : $"Oh no! Your level has decreased to \x02[ {newLevelName} \x02]");
+                        ? Localizer["Up", newLevelName]
+                        : Localizer["Down", newLevelName]);
 
                     if (_config.EnableScoreBoardRanks)
                         player.Clan = $"[{Regex.Replace(newLevel.Name, @"\{[A-Za-z]+}", "")}]";
@@ -401,8 +402,7 @@ public class Ranks : BasePlugin
         menu.AddMenuOption("Reset Rank", (player, _) =>
         {
             _userRankReset[player.Index] = true;
-            SendMessageToSpecificChat(player,
-                "If you do agree to reset the rank to zero, write\x06 confirm\x01. If you want to cancel, write\x02 cancel");
+            SendMessageToSpecificChat(player, Localizer["reset"]);
         });
 
         foreach (var rank in _config.Ranks)
@@ -436,10 +436,10 @@ public class Ranks : BasePlugin
         var totalTime = TimeSpan.FromSeconds(user.playtime);
         //var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
         var formattedTime =
-            $"{(totalTime.Days > 0 ? $"\x04{totalTime.Days}\x08 Days, " : "")}" +
-            $"{(totalTime.Hours > 0 ? $"\x04{totalTime.Hours}\x08 Hours, " : "")}" +
-            $"{(totalTime.Minutes > 0 ? $"\x04{totalTime.Minutes}\x08 Minutes, " : "")}" +
-            $"{(totalTime.Seconds > 0 ? $"\x04{totalTime.Seconds}\x08 Seconds" : "")}";
+            $"{(totalTime.Days > 0 ? $"{Localizer["days", totalTime.Days]}, " : "")}" +
+            $"{(totalTime.Hours > 0 ? $"{Localizer["hours", totalTime.Hours]}, " : "")}" +
+            $"{(totalTime.Minutes > 0 ? $"{Localizer["minutes", totalTime.Minutes]}, " : "")}" +
+            $"{(totalTime.Seconds > 0 ? $"{Localizer["seconds", totalTime.Seconds]}" : "")}";
         //var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
         var getPlayerTop = await GetPlayerRankAndTotal(steamId.SteamId2);
 
@@ -457,18 +457,16 @@ public class Ranks : BasePlugin
                 "-------------------------------------------------------------------");
             if (getPlayerTop != null)
                 SendMessageToSpecificChat(controller,
-                    $" \x08 Your position in the top: \x0C#{getPlayerTop.PlayerRank}/{getPlayerTop.TotalPlayers}");
+                    Localizer["rank.YourPosition", getPlayerTop.PlayerRank, getPlayerTop.TotalPlayers]);
 
             SendMessageToSpecificChat(controller,
-                $" \x08 Experience: \x04{user.value}\x08 (Rank:\x04 {ReplaceColorTags(GetLevelFromExperience(user.value).Name)}\x08)");
+                Localizer["rank.Experience", user.value, ReplaceColorTags(GetLevelFromExperience(user.value).Name)]);
             SendMessageToSpecificChat(controller,
-                $" \x08 Kills: \x04{user.kills} \x08(Headshot:\x04 {user.headshots}\x08) | Deaths: \x04{user.deaths} \x08| Assists: \x04{user.assists}");
+                Localizer["rank.KDA", user.kills, user.headshots, user.deaths, user.assists]);
+            SendMessageToSpecificChat(controller, Localizer["rank.Rounds", user.round_win, user.round_lose]);
             SendMessageToSpecificChat(controller,
-                $" \x08 Winning rounds: \x04{user.round_win} \x08| Losing rounds: \x04{user.round_lose}");
-            SendMessageToSpecificChat(controller,
-                $" \x08 Percentage Headshot: \x04{headshotPercentage:0.00} \x08| KD: \x04{kdr:0.00}");
-            SendMessageToSpecificChat(controller,
-                $" \x08 Total Play Time: {formattedTime}");
+                Localizer["rank.KDR", headshotPercentage.ToString("0.00"), kdr.ToString("0.00")]);
+            SendMessageToSpecificChat(controller, Localizer["rank.PlayTime", formattedTime]);
             SendMessageToSpecificChat(controller,
                 "-------------------------------------------------------------------");
         });
@@ -505,7 +503,7 @@ public class Ranks : BasePlugin
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
-            Server.NextFrame(() => controller.PrintToChat("[\x0C Top Players\x01 ]"));
+            Server.NextFrame(() => controller.PrintToChat(Localizer["top.Title"]));
             var rank = 1;
             foreach (var player in topPlayers)
             {
@@ -526,7 +524,7 @@ public class Ranks : BasePlugin
 
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
-        UpdateUserStatsLocal(@event.Userid, $"XP for the MVP of this round",
+        UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
             exp: _config.Events.EventRoundMvp);
 
         return HookResult.Continue;
@@ -539,8 +537,7 @@ public class Ranks : BasePlugin
             var playerCount = PlayersCount();
             if (_config.MinPlayers > playerCount)
             {
-                SendMessageToSpecificChat(msg:
-                    $" \x08There are not enough players on the server:\x0C {playerCount}\x08 out of\x0C {_config.MinPlayers}\x08. Gaining experience is temporarily unavailable",
+                SendMessageToSpecificChat(msg: Localizer["NotEnoughPlayers", playerCount, _config.MinPlayers],
                     print: PrintTo.ChatAll);
             }
 
@@ -564,10 +561,10 @@ public class Ranks : BasePlugin
                     if (player.TeamNum != (int)CsTeam.Spectator)
                     {
                         if (player.TeamNum != winner)
-                            UpdateUserStatsLocal(player, "XP for losing a round", exp: configEvent.Loser, roundlose: 1,
+                            UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, roundlose: 1,
                                 increase: false);
                         else
-                            UpdateUserStatsLocal(player, "XP for winning the round", exp: configEvent.Winner,
+                            UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner,
                                 roundwin: 1);
                     }
                 }
@@ -582,26 +579,26 @@ public class Ranks : BasePlugin
         var configEvent = _config.Events.EventPlayerBomb;
         RegisterEventHandler<EventBombDropped>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, "XP for dropping the bomb", exp: configEvent.DroppedBomb,
+            UpdateUserStatsLocal(@event.Userid, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb,
                 increase: false);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombDefused>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, "XP for defusing the bomb", exp: configEvent.DefusedBomb);
+            UpdateUserStatsLocal(@event.Userid, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPickup>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, "XP for raising the bomb", exp: configEvent.PickUpBomb);
+            UpdateUserStatsLocal(@event.Userid, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPlanted>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, "XP for planting the bomb", exp: configEvent.PlantedBomb);
+            UpdateUserStatsLocal(@event.Userid, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
     }
@@ -850,6 +847,7 @@ public class Ranks : BasePlugin
         {
             TableName = "lvl_base",
             Prefix = "[ {BLUE}Ranks {DEFAULT}]",
+            TeamKillAllowed = true,
             EnableScoreBoardRanks = true,
             UseCommandWithoutPrefix = true,
             ShowExperienceMessages = true,
@@ -998,6 +996,7 @@ public class Config
 {
     public required string TableName { get; init; }
     public required string Prefix { get; init; }
+    public bool TeamKillAllowed { get; init; }
     public bool EnableScoreBoardRanks { get; init; }
     public bool UseCommandWithoutPrefix { get; init; }
     public bool ShowExperienceMessages { get; init; }
