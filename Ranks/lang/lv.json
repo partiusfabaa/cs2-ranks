@@ -26,7 +26,7 @@
   "rank.PlayTime": "Kopējais Nospēlētais laiks: {0}",
   "top.Title": "[{blue} Top Spēlētāji{default} ]",
   "Up": "Apsveicam! Tu esi sasniedzis jaunu rangu {green}[ {0} {green}]",
-  "Down": "Ak, vai! Tavs rangu samazinājās! Tavs rangs tagad ir {red}[ {0} {red}]",
+  "Down": "Ak, vai! Tavs rangs samazinājās! Tavs rangs tagad ir {red}[ {0} {red}]",
   "reset": "Ja tu vēlies atgriezt savu rangu uz nulli. Raksti {green}confirm{default}. Ja tu vēlies atcelt darbību raksti {red}cancel",
   "reset.Successfully": "Tavs rangs tika veiksmīgi dzēsts!",
   "reset.Aborted": "Ranga dzēšanas darbība atcelta.",
