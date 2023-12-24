@@ -16,7 +16,7 @@
   "defusing_bomb": "за обезвреживание бомбы",
   "raising_bomb": "за поднятие бомбы",
   "planting_bomb": "за установку бомбы",
-  "next_level": "(Next level: {green}{0}{default})",
+  "next_level": "(Следующий уровень: {green}{0}{default})",
   "NotEnoughPlayers": "На сервере недостаточно игроков:{blue} {0}{default} из{blue} {1}{default}. Получение опыта временно недоступно",
   "rank.YourPosition": "Ваша позиция в топе: {blue}#{0}/{1}",
   "rank.Experience": "Опыт: {green}{0}{default} (Ранг:{green} {1}{default})",

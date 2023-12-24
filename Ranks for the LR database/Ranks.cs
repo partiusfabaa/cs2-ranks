@@ -258,9 +258,9 @@ public class Ranks : BasePlugin
             if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
                 return HookResult.Continue;
 
-            if (attacker.PlayerName != victim.PlayerName && !_config.TeamKillAllowed)
+            if (attacker.PlayerName != victim.PlayerName)
             {
-                if (attacker.TeamNum == victim.TeamNum)
+                if (attacker.TeamNum == victim.TeamNum && !_config.TeamKillAllowed)
                     UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
                         exp: configEvent.KillingAnAlly, increase: false);
                 else
