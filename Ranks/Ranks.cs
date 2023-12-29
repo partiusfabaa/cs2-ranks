@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -25,9 +26,9 @@ public class Ranks : BasePlugin
     private static string _dbConnectionString = string.Empty;
 
     private Config _config = null!;
-
+    
     private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers + 1];
-    private readonly Dictionary<ulong, User> _users = new();
+    private readonly ConcurrentDictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers + 1];
 
     private enum PrintTo
@@ -39,6 +40,7 @@ public class Ranks : BasePlugin
 
     public override void Load(bool hotReload)
     {
+        
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
@@ -71,7 +73,7 @@ public class Ranks : BasePlugin
                 var totalTime = GetTotalTime(entityIndex);
 
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
-                _users.Remove(player.SteamID);
+                _users.Remove(player.SteamID, out var _);
             }
 
             return HookResult.Continue;

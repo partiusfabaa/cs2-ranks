@@ -18,17 +18,17 @@ namespace Ranks;
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
-    public override string ModuleDescription => "[LR] Adds a rating system to the server";
-    public override string ModuleName => "Ranks";
+    public override string ModuleDescription => "Adds a rating system to the server";
+    public override string ModuleName => "Ranks for [LevelsRanks database]";
     public override string ModuleVersion => "v1.0.5";
 
     private static string _dbConnectionString = string.Empty;
 
     private Config _config = null!;
 
-    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers + 1];
+    private readonly bool?[] _userRankReset = new bool?[65];
     private readonly Dictionary<ulong, User> _users = new();
-    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers + 1];
+    private readonly DateTime[] _loginTime = new DateTime[65];
 
     private enum PrintTo
     {
@@ -156,7 +156,10 @@ public class Ranks : BasePlugin
                 {
                     case "confirm":
                         SendMessageToSpecificChat(player, Localizer["reset.Successfully"]);
-                        Task.Run(() => ResetRank(player));
+                        var index = player.Index;
+                        var name = player.PlayerName;
+                        var steamId = new SteamID(player.SteamID);
+                        Task.Run(() => ResetRank(index, name, steamId));
                         return HookResult.Handled;
                     case "cancel":
                         SendMessageToSpecificChat(player, Localizer["reset.Aborted"]);
@@ -168,13 +171,9 @@ public class Ranks : BasePlugin
         return HookResult.Continue;
     }
 
-    private async Task ResetRank(CCSPlayerController player)
+    private async Task ResetRank(uint index, string name, SteamID steamId)
     {
-        SteamID? steamId = null;
-
-        Server.NextFrame(() => steamId = new SteamID(player.SteamID));
-        if (steamId == null) return;
-        var steamId2 = ReplaceFirstCharacter(steamId.SteamId2, '1');
+        var steamId2 = ReplaceFirstCharacter(steamId.SteamId2);
 
         await ResetPlayerData(steamId2);
         Server.NextFrame(() =>
@@ -182,9 +181,9 @@ public class Ranks : BasePlugin
             _users[steamId.SteamId64] = new User
             {
                 steam = steamId2,
-                name = player.PlayerName
+                name = name
             };
-            _loginTime[player.Index] = DateTime.Now;
+            _loginTime[index] = DateTime.Now;
         });
     }
 
@@ -280,7 +279,7 @@ public class Ranks : BasePlugin
                     if (@event.Noscope)
                         UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], headshots: additionally.Headshot);
                     if (@event.Attackerblind)
                         UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
@@ -633,7 +632,7 @@ public class Ranks : BasePlugin
 
             await connection.ExecuteAsync(updateQuery, new
             {
-                SteamId = ReplaceFirstCharacter(steamId.SteamId2, '1'),
+                SteamId = ReplaceFirstCharacter(steamId.SteamId2),
                 Username = user.name,
                 LastLevel = user.rank,
                 Experience = user.value,
@@ -669,7 +668,7 @@ public class Ranks : BasePlugin
 
             var playerRank =
                 await connection.QueryFirstOrDefaultAsync<int>(rankQuery,
-                    new { SteamId = ReplaceFirstCharacter(steamId, '1') });
+                    new { SteamId = ReplaceFirstCharacter(steamId) });
             var totalPlayers = await connection.QueryFirstOrDefaultAsync<int>(totalPlayersQuery);
 
             return new PlayerStats { PlayerRank = playerRank, TotalPlayers = totalPlayers };
@@ -690,7 +689,7 @@ public class Ranks : BasePlugin
 
             var parameters = new User
             {
-                steam = ReplaceFirstCharacter(steamId, '1'),
+                steam = ReplaceFirstCharacter(steamId),
                 name = playerName,
                 value = _config.InitialExperiencePoints,
                 rank = 0,
@@ -744,7 +743,7 @@ public class Ranks : BasePlugin
                     lastconnect = {DateTimeOffset.Now.ToUnixTimeSeconds()},
                 WHERE steam = @SteamId;";
 
-            await dbConnection.ExecuteAsync(resetPlayerQuery, new { SteamId = ReplaceFirstCharacter(steamId, '1') });
+            await dbConnection.ExecuteAsync(resetPlayerQuery, new { SteamId = ReplaceFirstCharacter(steamId) });
         }
         catch (Exception e)
         {
@@ -787,8 +786,7 @@ public class Ranks : BasePlugin
 
     private TimeSpan GetTotalTime(uint entityIndex)
     {
-        var currentTime = DateTime.Now;
-        var totalTime = currentTime - _loginTime[entityIndex];
+        var totalTime = DateTime.Now - _loginTime[entityIndex];
 
         return totalTime;
     }
@@ -801,7 +799,7 @@ public class Ranks : BasePlugin
             await connection.OpenAsync();
             var user = await connection.QueryFirstOrDefaultAsync<User>(
                 $"SELECT * FROM `{_config.TableName}` WHERE `steam` = @SteamId",
-                new { SteamId = ReplaceFirstCharacter(steamId, '1') });
+                new { SteamId = ReplaceFirstCharacter(steamId) });
 
             return user;
         }
@@ -912,7 +910,7 @@ public class Ranks : BasePlugin
 
             var exists = await connection.ExecuteScalarAsync<bool>(
                 $"SELECT EXISTS(SELECT 1 FROM `{_config.TableName}` WHERE `steam` = @SteamId)",
-                new { SteamId = ReplaceFirstCharacter(steamId, '1') });
+                new { SteamId = ReplaceFirstCharacter(steamId) });
 
             return exists;
         }
@@ -924,12 +922,12 @@ public class Ranks : BasePlugin
         return false;
     }
 
-    private static string ReplaceFirstCharacter(string input, char replacement)
+    private static string ReplaceFirstCharacter(string input)
     {
         if (input.Length <= 0) return input;
 
         var charArray = input.ToCharArray();
-        charArray[6] = replacement;
+        charArray[6] = '1';
 
         return new string(charArray);
     }
