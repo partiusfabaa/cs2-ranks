@@ -28,5 +28,7 @@
   "Down": "Oh no! Your level has decreased to {red}[ {0} {red}]",
   "reset": "If you do agree to reset the rank to zero, write {green}confirm{default}. If you want to cancel, write {red}cancel",
   "reset.Successfully": "The rank has been successfully reset!",
-  "reset.Aborted": "Rank reset canceled. Operation aborted."
+  "reset.Aborted": "Rank reset canceled. Operation aborted.",
+  "top.Title": "[ {blue}Top Players {default}]",
+  "top.Players": "{0}. {blue}{1} {default}[ {olive}{2} {default}] -{green} Experience: {blue}{3}{default}, {green}K/D: {blue}{4}"
 }

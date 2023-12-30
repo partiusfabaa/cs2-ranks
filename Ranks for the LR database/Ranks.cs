@@ -49,9 +49,8 @@ public class Ranks : BasePlugin
 
             if (player.IsBot) return;
             var playerName = player.PlayerName;
-            var steamId = id;
 
-            Task.Run(() => OnClientAuthorizedAsync(playerName, steamId));
+            Task.Run(() => OnClientAuthorizedAsync(player, playerName, id));
             _loginTime[player.Index] = DateTime.Now;
             _userRankReset[player.Index] = false;
         });
@@ -100,16 +99,16 @@ public class Ranks : BasePlugin
         AddCommandListener("say", CommandListener_Say);
         AddCommandListener("say_team", CommandListener_Say);
 
-        AddTimer(1.0f, () =>
-        {
-            if (!_config.EnableScoreBoardRanks) return;
-            foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
-            {
-                if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-
-                player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]";
-            }
-        }, TimerFlags.REPEAT);
+        // AddTimer(1.0f, () =>
+        // {
+        //     if (!_config.EnableScoreBoardRanks) return;
+        //     foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
+        //     {
+        //         if (!_users.TryGetValue(player.SteamID, out var user)) continue;
+        //
+        //         player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]";
+        //     }
+        // }, TimerFlags.REPEAT);
         AddTimer(300.0f, () =>
         {
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
@@ -200,7 +199,7 @@ public class Ranks : BasePlugin
         return string.Empty;
     }
 
-    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
+    private async Task OnClientAuthorizedAsync(CCSPlayerController player, string playerName, SteamID steamId)
     {
         var userExists = await UserExists(steamId.SteamId2);
 
@@ -228,6 +227,7 @@ public class Ranks : BasePlugin
             playtime = user.playtime,
             lastconnect = user.lastconnect
         };
+        Server.NextFrame(() => player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]");
     }
 
     [ConsoleCommand("css_lr_reload")]
@@ -279,7 +279,7 @@ public class Ranks : BasePlugin
                     if (@event.Noscope)
                         UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], headshots: additionally.Headshot);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot, headshots: 1);
                     if (@event.Attackerblind)
                         UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
@@ -379,7 +379,10 @@ public class Ranks : BasePlugin
                         : Localizer["Down", newLevelName]);
 
                     if (_config.EnableScoreBoardRanks)
+                    {
                         player.Clan = $"[{Regex.Replace(newLevel.Name, @"\{[A-Za-z]+}", "")}]";
+                        Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
+                    }
 
                     user.rank = newLevel.Level;
                 }
@@ -486,7 +489,7 @@ public class Ranks : BasePlugin
             var totalTime = GetTotalTime(entityIndex);
             Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
         }
-
+        
         AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
     }
 

@@ -28,5 +28,7 @@
   "Down": "О нет! Ваш уровень уменьшился до {red}[ {0} {red}]",
   "reset": "Если вы согласны сбросить ранг до нуля, напишите {green}confirm{default}. Если вы хотите отменить, напишите {red}cancel",
   "reset.Successfully": "Ранг успешно сброшен!",
-  "reset.Aborted": "Сброс ранга отменен. Операция прервана."
+  "reset.Aborted": "Сброс ранга отменен. Операция прервана.",
+  "top.Title": "[ {blue}Топ Игроков {default}]",
+  "top.Players": "{0}. {blue}{1} {default}[ {olive}{2} {default}] -{green} Опыт: {blue}{3}{default}, {green}K/D: {blue}{4}"
 }

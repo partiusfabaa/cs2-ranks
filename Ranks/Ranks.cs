@@ -27,9 +27,9 @@ public class Ranks : BasePlugin
 
     private Config _config = null!;
     
-    private readonly bool?[] _userRankReset = new bool?[Server.MaxPlayers + 1];
+    private readonly bool?[] _userRankReset = new bool?[65];
     private readonly ConcurrentDictionary<ulong, User> _users = new();
-    private readonly DateTime[] _loginTime = new DateTime[Server.MaxPlayers + 1];
+    private readonly DateTime[] _loginTime = new DateTime[65];
 
     private enum PrintTo
     {
@@ -53,7 +53,7 @@ public class Ranks : BasePlugin
             var playerName = player.PlayerName;
             var steamId = id;
 
-            Task.Run(() => OnClientAuthorizedAsync(playerName, steamId));
+            Task.Run(() => OnClientAuthorizedAsync(player, playerName, steamId));
             _loginTime[player.Index] = DateTime.Now;
             _userRankReset[player.Index] = false;
         });
@@ -82,16 +82,16 @@ public class Ranks : BasePlugin
         AddCommandListener("say", CommandListener_Say);
         AddCommandListener("say_team", CommandListener_Say);
 
-        AddTimer(1.0f, () =>
-        {
-            foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
-            {
-                if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-                if (!user.clan_tag_enabled || !_config.EnableScoreBoardRanks) continue;
-
-                player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "")}]";
-            }
-        }, TimerFlags.REPEAT);
+        // AddTimer(1.0f, () =>
+        // {
+        //     foreach (var player in Utilities.GetPlayers().Where(player => player.IsValid))
+        //     {
+        //         if (!_users.TryGetValue(player.SteamID, out var user)) continue;
+        //         if (!user.clan_tag_enabled || !_config.EnableScoreBoardRanks) continue;
+        //
+        //         player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "")}]";
+        //     }
+        // }, TimerFlags.REPEAT);
         AddTimer(300.0f, () =>
         {
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
@@ -138,7 +138,8 @@ public class Ranks : BasePlugin
                 {
                     case "confirm":
                         SendMessageToSpecificChat(player, Localizer["reset.Successfully"]);
-                        Task.Run(() => ResetRank(player));
+                        var steamId = new SteamID(player.SteamID);
+                        Task.Run(() => ResetRank(player, steamId));
                         return HookResult.Handled;
                     case "cancel":
                         SendMessageToSpecificChat(player, Localizer["reset.Aborted"]);
@@ -150,12 +151,8 @@ public class Ranks : BasePlugin
         return HookResult.Continue;
     }
 
-    private async Task ResetRank(CCSPlayerController player)
+    private async Task ResetRank(CCSPlayerController player, SteamID steamId)
     {
-        SteamID? steamId = null;
-
-        Server.NextFrame(() => steamId = new SteamID(player.SteamID));
-        if (steamId == null) return;
         await ResetPlayerData(steamId.SteamId2);
         Server.NextFrame(() =>
         {
@@ -181,7 +178,7 @@ public class Ranks : BasePlugin
         return string.Empty;
     }
 
-    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
+    private async Task OnClientAuthorizedAsync(CCSPlayerController player, string playerName, SteamID steamId)
     {
         var userExists = await UserExists(steamId.SteamId2);
 
@@ -211,6 +208,11 @@ public class Ranks : BasePlugin
             last_level = user.last_level,
             clan_tag_enabled = user.clan_tag_enabled
         };
+        
+        if (!_config.EnableScoreBoardRanks) return;
+        if (!user.clan_tag_enabled) return;
+        
+        Server.NextFrame(() => player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "")}]");
     }
 
     [ConsoleCommand("css_lr_reload")]
@@ -261,7 +263,7 @@ public class Ranks : BasePlugin
                     if (@event.Noscope)
                         UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot, headKills: 1, headshot: true);
                     if (@event.Attackerblind)
                         UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
@@ -376,7 +378,10 @@ public class Ranks : BasePlugin
                         : Localizer["Down", newLevelName]);
 
                     if (_config.EnableScoreBoardRanks)
+                    {
                         player.Clan = $"[{Regex.Replace(newLevel.Name, @"\{[A-Za-z]+}", "")}]";
+                        Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
+                    }
 
                     user.last_level = newLevel.Level;
                 }
@@ -515,15 +520,16 @@ public class Ranks : BasePlugin
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
+            Server.NextFrame(() => controller.PrintToChat(Localizer["top.Title"]));
             var rank = 1;
             foreach (var player in topPlayers)
             {
                 Server.NextFrame(() =>
                 {
                     if (!controller.IsValid) return;
-
-                    controller.PrintToChat(
-                        $"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.experience).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}");
+//$"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.experience).Name)}\x01]
+//-\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}"
+                    controller.PrintToChat(Localizer["top.Players", rank++, player.username, ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience, player.kdr.ToString("F1")]);
                 });
             }
         }

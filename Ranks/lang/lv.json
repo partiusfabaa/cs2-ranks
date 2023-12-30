@@ -33,5 +33,7 @@
   "days": "{green}{0}{default} Diena(s)",
   "hours": "{green}{0}{default} Stunda(s)",
   "minutes": "{green}{0}{default} Minūte(s)",
-  "seconds": "{green}{0}{default} Sekunde(s)"
+  "seconds": "{green}{0}{default} Sekunde(s)",
+  "top.Title": "[ {blue}Labākie spēlētāji {default}]",
+  "top.Players": "{0}. {blue}{1} {default}[ {olive}{2} {default}] -{green} Pieredze: {blue}{3}{default}, {green}K/D: {blue}{4}"
 }
