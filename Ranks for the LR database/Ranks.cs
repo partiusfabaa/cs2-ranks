@@ -246,6 +246,9 @@ public class Ranks : BasePlugin
             playtime = user.playtime,
             lastconnect = user.lastconnect
         };
+
+        if (!_config.EnableScoreBoardRanks) return;
+        
         Server.NextFrame(() =>
             player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]");
     }
