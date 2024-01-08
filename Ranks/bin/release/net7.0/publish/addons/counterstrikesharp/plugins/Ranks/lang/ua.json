@@ -16,7 +16,6 @@
   "defusing_bomb": "за обезгашення бомби",
   "raising_bomb": "за підняття бомби",
   "planting_bomb": "за встановлення бомби",
-  "suicide": "за самогубство",
   "NotEnoughPlayers": "На сервері недостатньо гравців: {blue} {0}{default} з {blue} {1}{default}. Отримання досвіду тимчасово недоступне",
   "rank.YourPosition": "Ваша позиція в топі: {blue}#{0}/{1}",
   "rank.Experience": "Досвід: {green}{0}{default} (Ранг:{green} {1}{default}) | Рахунок: {green}{2}",

@@ -26,7 +26,7 @@ public class Ranks : BasePlugin
     private static string _dbConnectionString = string.Empty;
 
     private Config _config = null!;
-    
+
     private readonly bool?[] _userRankReset = new bool?[65];
     private readonly ConcurrentDictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[65];
@@ -40,7 +40,6 @@ public class Ranks : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
@@ -158,6 +157,7 @@ public class Ranks : BasePlugin
         {
             _users[steamId.SteamId64] = new User
             {
+                experience = _config.InitialExperiencePoints,
                 username = player.PlayerName,
                 steamid = steamId.SteamId2
             };
@@ -208,11 +208,12 @@ public class Ranks : BasePlugin
             last_level = user.last_level,
             clan_tag_enabled = user.clan_tag_enabled
         };
-        
+
         if (!_config.EnableScoreBoardRanks) return;
         if (!user.clan_tag_enabled) return;
-        
-        Server.NextFrame(() => player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "")}]");
+
+        Server.NextFrame(() =>
+            player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "")}]");
     }
 
     [ConsoleCommand("css_lr_reload")]
@@ -242,10 +243,13 @@ public class Ranks : BasePlugin
             if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
                 return HookResult.Continue;
 
-            if (attacker.PlayerName != victim.PlayerName)
+            if (attacker.PlayerName == victim.PlayerName)
+                UpdateUserStatsLocal(attacker, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
+            else
             {
                 if (attacker.TeamNum == victim.TeamNum && !_config.TeamKillAllowed)
-                    UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"], exp: configEvent.KillingAnAlly, increase: false);
+                    UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"], exp: configEvent.KillingAnAlly,
+                        increase: false);
                 else
                 {
                     var weaponName = @event.Weapon;
@@ -261,13 +265,16 @@ public class Ranks : BasePlugin
                     if (@event.Thrusmoke)
                         UpdateUserStatsLocal(attacker, Localizer["MurderThroughSmoke"], exp: additionally.Thrusmoke);
                     if (@event.Noscope)
-                        UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderWithoutScope"], exp: additionally.Noscope,
+                            nzKills: 1);
                     if (@event.Headshot)
-                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot, headKills: 1, headshot: true);
+                        UpdateUserStatsLocal(attacker, Localizer["MurderToTheHead"], exp: additionally.Headshot,
+                            headKills: 1, headshot: true);
                     if (@event.Attackerblind)
                         UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
                         UpdateUserStatsLocal(attacker, Localizer["MurderWith", weaponName], exp: exp);
+                    UpdateUserStatsLocal(assister, dmg: @event.DmgHealth);
                 }
             }
         }
@@ -529,7 +536,9 @@ public class Ranks : BasePlugin
                     if (!controller.IsValid) return;
 //$"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.experience).Name)}\x01]
 //-\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}"
-                    controller.PrintToChat(Localizer["top.Players", rank++, player.username, ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience, player.kdr.ToString("F1")]);
+                    controller.PrintToChat(Localizer["top.Players", rank ++, player.username,
+                        ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience,
+                        player.kdr.ToString("F1")]);
                 });
             }
         }
@@ -542,7 +551,7 @@ public class Ranks : BasePlugin
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
         UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
-            exp: _config.Events.EventRoundMvp);
+            exp: _config.Events.EventRoundMvp, mvp: 1);
 
         return HookResult.Continue;
     }
@@ -578,7 +587,8 @@ public class Ranks : BasePlugin
                     if (player.TeamNum != (int)CsTeam.Spectator)
                     {
                         if (player.TeamNum != winner)
-                            UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, increase: false);
+                            UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser,
+                                increase: false);
                         else
                             UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner);
                     }
@@ -740,7 +750,7 @@ public class Ranks : BasePlugin
         }
     }
 
-    static async Task ResetPlayerData(string steamId)
+    private async Task ResetPlayerData(string steamId)
     {
         try
         {
@@ -750,7 +760,7 @@ public class Ranks : BasePlugin
             var resetPlayerQuery = @"
                 UPDATE ranks_users
                 SET
-                    experience = 0,
+                    experience = @InitExp,
                     score = 0,
                     kills = 0,
                     deaths = 0,
@@ -766,7 +776,8 @@ public class Ranks : BasePlugin
                     last_level = 0
                 WHERE steamId = @SteamId;";
 
-            await dbConnection.ExecuteAsync(resetPlayerQuery, new { SteamId = steamId });
+            await dbConnection.ExecuteAsync(resetPlayerQuery,
+                new { SteamId = steamId, InitExp = _config.InitialExperiencePoints });
         }
         catch (Exception e)
         {
@@ -850,7 +861,7 @@ public class Ranks : BasePlugin
             UserID = dbConfig.Connection.User,
             Password = dbConfig.Connection.Password,
             Server = dbConfig.Connection.Host,
-            Port = 3306
+            Port = (uint)dbConfig.Connection.Port
         };
 
         Console.WriteLine("OK!");
@@ -877,11 +888,12 @@ public class Ranks : BasePlugin
             UseCommandWithoutPrefix = true,
             ShowExperienceMessages = true,
             MinPlayers = 4,
-            InitialExperiencePoints = 500,
+            InitialExperiencePoints = 100,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
-                EventPlayerDeath = new PlayerDeath { Kills = 15, Deaths = 20, Assists = 5, KillingAnAlly = 10 },
+                EventPlayerDeath = new PlayerDeath
+                    { Kills = 13, Deaths = 20, Assists = 5, KillingAnAlly = 10, Suicide = 15 },
                 EventPlayerBomb = new Bomb { DroppedBomb = 5, DefusedBomb = 3, PickUpBomb = 3, PlantedBomb = 4 },
                 EventRoundEnd = new RoundEnd { Winner = 5, Loser = 8 },
                 Additionally = new Additionally
@@ -919,7 +931,8 @@ public class Ranks : BasePlugin
                 Host = "HOST",
                 Database = "DATABASE_NAME",
                 User = "USER_NAME",
-                Password = "PASSWORD"
+                Password = "PASSWORD",
+                Port = 3306
             }
         };
 

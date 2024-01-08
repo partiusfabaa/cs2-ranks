@@ -16,6 +16,7 @@
   "defusing_bomb": "par atmīnētu bumbu",
   "raising_bomb": "par bumbas pacelšanu",
   "planting_bomb": "par bumbas uzstādīšanu",
+  "suicide": "par pašnāvību",
   "next_level": "(Nākamais līmenis pēc: {green}{0}{default})",
   "NotEnoughPlayers": "Serverī šobrīd nav pietiekami daudz spēlētāju! Serverī ir {blue} {0}{default} Vajadzīgi ir {blue} {1}{default}. Punkti šobrīd netiek skaitīti.",
   "rank.YourPosition": "Tava pozīcija topā: {blue}#{0}/{1}",

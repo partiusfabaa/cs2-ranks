@@ -15,6 +15,7 @@ public class PlayerDeath
     public int Deaths { get; init; }
     public int Assists { get; init; }
     public int KillingAnAlly { get; init; }
+    public int Suicide { get; init; }
 }
 
 public class Bomb
