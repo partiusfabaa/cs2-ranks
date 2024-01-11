@@ -34,8 +34,6 @@ public class Ranks : BasePlugin
     private readonly ConcurrentDictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[65];
 
-    private bool _lrEnabled;
-
     private enum PrintTo
     {
         Chat = 1,
@@ -45,13 +43,6 @@ public class Ranks : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        AddCommand("css_lr_enabled", "", (player, info) =>
-        {
-            if (player != null) return;
-
-            _lrEnabled = int.Parse(info.GetArg(1)) == 1;
-        });
-        
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
@@ -248,7 +239,7 @@ public class Ranks : BasePlugin
         };
 
         if (!_config.EnableScoreBoardRanks) return;
-        
+
         Server.NextFrame(() =>
             player.Clan = $"[{Regex.Replace(GetLevelFromExperience(user.value).Name, @"\{[A-Za-z]+}", "")}]");
     }
@@ -280,9 +271,7 @@ public class Ranks : BasePlugin
             if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
                 return HookResult.Continue;
 
-            if (attacker.PlayerName == victim.PlayerName)
-                UpdateUserStatsLocal(attacker, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
-            else
+            if (attacker.PlayerName != victim.PlayerName)
             {
                 if (attacker.TeamNum == victim.TeamNum && !_config.TeamKillAllowed)
                     UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
@@ -319,8 +308,10 @@ public class Ranks : BasePlugin
             if (victim.IsBot || victim is { PlayerName: null })
                 return HookResult.Continue;
 
-            UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false,
-                death: 1);
+            if (attacker.PlayerName != victim.PlayerName)
+                UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false, death: 1);
+            else
+                UpdateUserStatsLocal(attacker, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
         }
 
         if (assister.IsValid)
@@ -337,8 +328,6 @@ public class Ranks : BasePlugin
         int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
         int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
     {
-        if (!_lrEnabled) return;
-        
         if (player == null || _config.MinPlayers > PlayersCount() ||
             Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
                 .WarmupPeriod) return;
@@ -771,13 +760,14 @@ public class Ranks : BasePlugin
                     round_win = 0,
                     round_lose = 0,
                     playtime = 0,
-                    lastconnect = {DateTimeOffset.Now.ToUnixTimeSeconds()},
+                    lastconnect = @LastConnect
                 WHERE steam = @SteamId;";
 
             await dbConnection.ExecuteAsync(resetPlayerQuery, new
             {
                 SteamId = ReplaceFirstCharacter(steamId),
-                DefaultValue = _config.InitialExperiencePoints
+                DefaultValue = _config.InitialExperiencePoints,
+                LastConnect = DateTimeOffset.Now.ToUnixTimeSeconds()
             });
         }
         catch (Exception e)
