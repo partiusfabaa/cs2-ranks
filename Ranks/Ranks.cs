@@ -602,29 +602,48 @@ public class Ranks : BasePlugin
 
     private void BombEvents()
     {
-        var configEvent = _config.Events.EventPlayerBomb;
         RegisterEventHandler<EventBombDropped>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb,
+            var configEvent = _config.Events.EventPlayerBomb;
+            var player = @event.Userid;
+
+            if (!player.IsValid) return HookResult.Continue;
+            
+            UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb,
                 increase: false);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombDefused>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
+            var configEvent = _config.Events.EventPlayerBomb;
+            var player = @event.Userid;
+
+            if (!player.IsValid) return HookResult.Continue;
+            
+            UpdateUserStatsLocal(player, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPickup>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
+            var configEvent = _config.Events.EventPlayerBomb;
+            var player = @event.Userid;
+
+            if (!player.IsValid) return HookResult.Continue;
+            
+            UpdateUserStatsLocal(player, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
             return HookResult.Continue;
         });
 
         RegisterEventHandler<EventBombPlanted>((@event, _) =>
         {
-            UpdateUserStatsLocal(@event.Userid, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
+            var configEvent = _config.Events.EventPlayerBomb;
+            var player = @event.Userid;
+
+            if (!player.IsValid) return HookResult.Continue;
+            
+            UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
     }
