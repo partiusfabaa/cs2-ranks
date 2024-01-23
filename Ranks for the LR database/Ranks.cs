@@ -5,16 +5,13 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Dapper;
 using MySqlConnector;
-using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 
 namespace Ranks;
 
@@ -46,7 +43,8 @@ public class Ranks : BasePlugin
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
-
+        
+        RegisterListener<Listeners.OnMapStart>(OnMapStart);
         RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
             var player = Utilities.GetPlayerFromSlot(slot);
@@ -131,6 +129,11 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
+    }
+
+    private void OnMapStart(string mapName)
+    {
+        
     }
 
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
@@ -268,10 +271,10 @@ public class Ranks : BasePlugin
 
         if (attacker.IsValid)
         {
-            if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
+            if (attacker.IsBot || victim.IsBot)
                 return HookResult.Continue;
 
-            if (attacker.PlayerName != victim.PlayerName)
+            if (attacker != victim)
             {
                 if (attacker.TeamNum == victim.TeamNum && !_config.TeamKillAllowed)
                     UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
@@ -305,18 +308,18 @@ public class Ranks : BasePlugin
 
         if (victim.IsValid)
         {
-            if (victim.IsBot || victim is { PlayerName: null })
+            if (victim.IsBot)
                 return HookResult.Continue;
 
-            if (attacker.PlayerName != victim.PlayerName)
+            if (attacker != victim)
                 UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false, death: 1);
             else
-                UpdateUserStatsLocal(attacker, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
+                UpdateUserStatsLocal(victim, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
         }
 
         if (assister.IsValid)
         {
-            if (assister.IsBot || assister is { PlayerPawn: null }) return HookResult.Continue;
+            if (assister.IsBot) return HookResult.Continue;
 
             UpdateUserStatsLocal(assister, Localizer["AssistingInAKill"], exp: configEvent.Assists, assist: 1);
         }
@@ -517,8 +520,7 @@ public class Ranks : BasePlugin
             await using var connection = new MySqlConnection(_dbConnectionString);
             await connection.OpenAsync();
 
-            var query = $@"
-        SELECT DISTINCT * FROM `{_config.TableName}` ORDER BY `value` DESC LIMIT 10;";
+            var query = $@"SELECT DISTINCT * FROM `{_config.TableName}` ORDER BY `value` DESC LIMIT 10;";
 
             var topPlayers = await connection.QueryAsync<User>(query);
 
@@ -1007,7 +1009,11 @@ public class Ranks : BasePlugin
 
     private static int PlayersCount()
     {
-        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true, TeamNum: not (0 or 1) });
+        return Utilities.GetPlayers().Count(u => u is
+        {
+            IsBot: false, IsValid: true, TeamNum: not (0 or 1), PlayerPawn.Value: not null,
+            PlayerPawn.Value.IsValid: true
+        });
     }
 }
 
