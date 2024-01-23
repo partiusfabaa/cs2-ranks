@@ -27,6 +27,7 @@ public class Ranks : BasePlugin
 
     private Config _config = null!;
 
+    private List<User> _topPlayers = new();
     private readonly bool?[] _userRankReset = new bool?[65];
     private readonly ConcurrentDictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[65];
@@ -43,7 +44,7 @@ public class Ranks : BasePlugin
         _config = LoadConfig();
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
-        
+
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
         RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
@@ -133,7 +134,19 @@ public class Ranks : BasePlugin
 
     private void OnMapStart(string mapName)
     {
-        
+        Task.Run(OnMapStartAsync);
+    }
+
+    private async Task OnMapStartAsync()
+    {
+        await using var connection = new MySqlConnection(_dbConnectionString);
+        await connection.OpenAsync();
+
+        var query = $"SELECT DISTINCT * FROM `{_config.TableName}` ORDER BY `value` DESC LIMIT 10;";
+
+        var topPlayers = await connection.QueryAsync<User>(query);
+
+        _topPlayers = topPlayers.ToList();
     }
 
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
@@ -499,49 +512,35 @@ public class Ranks : BasePlugin
     {
         if (controller == null) return;
 
-        foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
+        var validPlayers = Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }).ToList();
+
+        foreach (var player in validPlayers)
         {
-            var entityIndex = players.Index;
+            var topPlayerIndex =
+                _topPlayers.FindIndex(t => t.steam == ReplaceFirstCharacter(new SteamID(player.SteamID).SteamId2));
 
-            if (!_users.TryGetValue(players.SteamID, out var user)) return;
-
-            var steamId = new SteamID(players.SteamID);
-            var totalTime = GetTotalTime(entityIndex);
-            Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
+            if (topPlayerIndex != -1)
+                _topPlayers[topPlayerIndex] = _users[player.SteamID];
         }
 
-        AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
+        ShowTopPlayers(controller);
     }
 
-    private async Task ShowTopPlayers(CCSPlayerController controller)
+    private void ShowTopPlayers(CCSPlayerController controller)
     {
-        try
+        var topPlayersSorted = _topPlayers.OrderByDescending(p => p.value).ToList();
+
+        controller.PrintToChat(Localizer["top.Title"]);
+        var rank = 1;
+        foreach (var player in topPlayersSorted)
         {
-            await using var connection = new MySqlConnection(_dbConnectionString);
-            await connection.OpenAsync();
+            if (!controller.IsValid) continue;
 
-            var query = $@"SELECT DISTINCT * FROM `{_config.TableName}` ORDER BY `value` DESC LIMIT 10;";
-
-            var topPlayers = await connection.QueryAsync<User>(query);
-
-            Server.NextFrame(() => controller.PrintToChat(Localizer["top.Title"]));
-            var rank = 1;
-            foreach (var player in topPlayers)
-            {
-                Server.NextFrame(() =>
-                {
-                    if (!controller.IsValid) return;
-
-                    controller.PrintToChat(
-                        $"{rank ++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
-                });
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
+            controller.PrintToChat(
+                $"{rank ++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
         }
     }
+
 
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {

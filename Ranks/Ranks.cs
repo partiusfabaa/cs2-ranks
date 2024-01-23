@@ -21,12 +21,13 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.5";
+    public override string ModuleVersion => "v1.0.6";
 
     private static string _dbConnectionString = string.Empty;
 
     private Config _config = null!;
 
+    private List<User> _topPlayers = new();
     private readonly bool?[] _userRankReset = new bool?[65];
     private readonly ConcurrentDictionary<ulong, User> _users = new();
     private readonly DateTime[] _loginTime = new DateTime[65];
@@ -44,6 +45,7 @@ public class Ranks : BasePlugin
         _dbConnectionString = BuildConnectionString();
         Task.Run(CreateTable);
 
+        RegisterListener<Listeners.OnMapStart>(OnMapStart);
         RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
             var player = Utilities.GetPlayerFromSlot(slot);
@@ -110,6 +112,23 @@ public class Ranks : BasePlugin
         CreateMenu();
     }
 
+    private void OnMapStart(string mapName)
+    {
+        Task.Run(OnMapStartAsync);
+    }
+
+    private async Task OnMapStartAsync()
+    {
+        await using var connection = new MySqlConnection(_dbConnectionString);
+        await connection.OpenAsync();
+
+        var query = $"SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
+
+        var topPlayers = await connection.QueryAsync<User>(query);
+
+        _topPlayers = topPlayers.ToList();
+    }
+    
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null) return HookResult.Continue;
@@ -231,7 +250,7 @@ public class Ranks : BasePlugin
         var victim = @event.Userid;
         var attacker = @event.Attacker;
         var assister = @event.Assister;
-
+        
         if (_config.MinPlayers > PlayersCount())
             return HookResult.Continue;
 
@@ -240,10 +259,10 @@ public class Ranks : BasePlugin
 
         if (attacker.IsValid)
         {
-            if (attacker.IsBot || victim is { PlayerName: null } || attacker is { PlayerName: null })
+            if (attacker.IsBot || victim.IsBot)
                 return HookResult.Continue;
 
-            if (attacker.PlayerName == victim.PlayerName)
+            if (attacker == victim)
                 UpdateUserStatsLocal(attacker, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
             else
             {
@@ -274,14 +293,14 @@ public class Ranks : BasePlugin
                         UpdateUserStatsLocal(attacker, Localizer["BlindMurder"], exp: additionally.Attackerblind);
                     if (_config.Weapon.TryGetValue(weaponName, out var exp))
                         UpdateUserStatsLocal(attacker, Localizer["MurderWith", weaponName], exp: exp);
-                    UpdateUserStatsLocal(assister, dmg: @event.DmgHealth);
+                    UpdateUserStatsLocal(attacker, dmg: @event.DmgHealth);
                 }
             }
         }
 
         if (victim.IsValid)
         {
-            if (victim.IsBot || victim is { PlayerName: null })
+            if (victim.IsBot)
                 return HookResult.Continue;
 
             UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false,
@@ -290,7 +309,7 @@ public class Ranks : BasePlugin
 
         if (assister.IsValid)
         {
-            if (assister.IsBot || assister is { PlayerPawn: null }) return HookResult.Continue;
+            if (assister.IsBot) return HookResult.Continue;
 
             UpdateUserStatsLocal(assister, Localizer["AssistingInAKill"], exp: configEvent.Assists, assist: 1);
         }
@@ -501,50 +520,32 @@ public class Ranks : BasePlugin
     {
         if (controller == null) return;
 
-        foreach (var players in Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }))
+        var validPlayers = Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }).ToList();
+
+        foreach (var player in validPlayers)
         {
-            var entityIndex = players.Index;
+            var topPlayerIndex =
+                _topPlayers.FindIndex(t => t.steamid == new SteamID(player.SteamID).SteamId2);
 
-            if (!_users.TryGetValue(players.SteamID, out var user)) return;
-
-            var steamId = new SteamID(players.SteamID);
-            var totalTime = GetTotalTime(entityIndex);
-            Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
+            if (topPlayerIndex != -1)
+                _topPlayers[topPlayerIndex] = _users[player.SteamID];
         }
 
-        AddTimer(.5f, () => Task.Run(() => ShowTopPlayers(controller)));
+        ShowTopPlayers(controller);
     }
 
-    private async Task ShowTopPlayers(CCSPlayerController controller)
+    private void ShowTopPlayers(CCSPlayerController controller)
     {
-        try
+        var topPlayersSorted = _topPlayers.OrderByDescending(p => p.experience).ToList();
+
+        controller.PrintToChat(Localizer["top.Title"]);
+        var rank = 1;
+        foreach (var player in topPlayersSorted)
         {
-            await using var connection = new MySqlConnection(_dbConnectionString);
-            await connection.OpenAsync();
-
-            var query = @"
-        SELECT DISTINCT * FROM `ranks_users` ORDER BY `experience` DESC LIMIT 10;";
-
-            var topPlayers = await connection.QueryAsync<User>(query);
-
-            Server.NextFrame(() => controller.PrintToChat(Localizer["top.Title"]));
-            var rank = 1;
-            foreach (var player in topPlayers)
-            {
-                Server.NextFrame(() =>
-                {
-                    if (!controller.IsValid) return;
-//$"{rank ++}. {ChatColors.Blue}{player.username} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.experience).Name)}\x01]
-//-\x06 Experience: {ChatColors.Blue}{player.experience}\x01,\x06 K/D:{ChatColors.Blue} {player.kdr:F1}"
-                    controller.PrintToChat(Localizer["top.Players", rank ++, player.username,
-                        ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience,
-                        player.kdr.ToString("F1")]);
-                });
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
+            if (!controller.IsValid) return;
+            controller.PrintToChat(Localizer["top.Players", rank ++, player.username,
+                ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience,
+                player.kdr.ToString("F1")]);
         }
     }
 
@@ -1010,7 +1011,11 @@ public class Ranks : BasePlugin
 
     private static int PlayersCount()
     {
-        return Utilities.GetPlayers().Count(u => u is { IsBot: false, IsValid: true, TeamNum: not (0 or 1) });
+        return Utilities.GetPlayers().Count(u => u is
+        {
+            IsBot: false, IsValid: true, TeamNum: not (0 or 1), PlayerPawn.Value: not null,
+            PlayerPawn.Value.IsValid: true
+        });
     }
 }
 
