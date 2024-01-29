@@ -72,7 +72,8 @@ public class Ranks : BasePlugin
             {
                 var steamId = new SteamID(player.SteamID);
                 var totalTime = GetTotalTime(entityIndex);
-
+                
+                user.username = player.PlayerName;
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
                 _users.Remove(player.SteamID, out var _);
             }
@@ -326,8 +327,6 @@ public class Ranks : BasePlugin
                 .WarmupPeriod) return;
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
-
-        user.username = player.PlayerName;
 
         exp = exp == -1 ? 0 : exp;
 
@@ -607,10 +606,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb,
-                increase: false);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb, increase: false);
             return HookResult.Continue;
         });
 
@@ -619,9 +616,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
             return HookResult.Continue;
         });
 
@@ -630,9 +626,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
             return HookResult.Continue;
         });
 
@@ -641,9 +636,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
     }

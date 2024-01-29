@@ -46,6 +46,7 @@ public class Ranks : BasePlugin
         Task.Run(CreateTable);
 
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
+
         RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
             var player = Utilities.GetPlayerFromSlot(slot);
@@ -54,9 +55,10 @@ public class Ranks : BasePlugin
             var playerName = player.PlayerName;
 
             Task.Run(() => OnClientAuthorizedAsync(player, playerName, id));
-            _loginTime[player.Index] = DateTime.Now;
+            _loginTime[player.Index] = DateTime.UtcNow;
             _userRankReset[player.Index] = false;
         });
+
 
         RegisterEventHandler<EventRoundMvp>(EventRoundMvp);
         RegisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
@@ -92,6 +94,7 @@ public class Ranks : BasePlugin
                 var totalTime = GetTotalTime(entityIndex);
                 _loginTime[entityIndex] = DateTime.MinValue;
 
+                user.name = player.PlayerName;
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
                 _users.Remove(player.SteamID, out var _);
             }
@@ -204,7 +207,7 @@ public class Ranks : BasePlugin
                 name = name,
                 value = _config.InitialExperiencePoints
             };
-            _loginTime[index] = DateTime.Now;
+            _loginTime[index] = DateTime.UtcNow;
         });
     }
 
@@ -349,8 +352,6 @@ public class Ranks : BasePlugin
                 .WarmupPeriod) return;
 
         if (!_users.TryGetValue(player.SteamID, out var user)) return;
-
-        user.name = player.PlayerName;
 
         exp = exp == -1 ? 0 : exp;
 
@@ -601,10 +602,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb,
-                increase: false);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb, increase: false);
             return HookResult.Continue;
         });
 
@@ -613,9 +612,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["defusing_bomb"], exp: configEvent.DefusedBomb);
             return HookResult.Continue;
         });
 
@@ -624,9 +622,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["raising_bomb"], exp: configEvent.PickUpBomb);
             return HookResult.Continue;
         });
 
@@ -635,9 +632,8 @@ public class Ranks : BasePlugin
             var configEvent = _config.Events.EventPlayerBomb;
             var player = @event.Userid;
 
-            if (!player.IsValid) return HookResult.Continue;
-            
-            UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
+            if (player != null && player.IsValid)
+                UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
             return HookResult.Continue;
         });
     }
@@ -831,7 +827,7 @@ public class Ranks : BasePlugin
 
     private TimeSpan GetTotalTime(uint entityIndex)
     {
-        var totalTime = DateTime.Now - _loginTime[entityIndex];
+        var totalTime = DateTime.UtcNow - _loginTime[entityIndex];
 
         return totalTime;
     }
