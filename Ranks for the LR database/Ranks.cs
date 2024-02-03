@@ -21,16 +21,16 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks for [LevelsRanks database]";
-    public override string ModuleVersion => "v1.0.6.3";
+    public override string ModuleVersion => "v1.0.6.4";
 
     private static string _dbConnectionString = string.Empty;
 
     private Config _config = null!;
 
     private List<User> _topPlayers = new();
-    private readonly bool?[] _userRankReset = new bool?[65];
+    private readonly bool[] _userRankReset = new bool[64];
     private readonly ConcurrentDictionary<ulong, User> _users = new();
-    private readonly DateTime[] _loginTime = new DateTime[65];
+    private readonly DateTime[] _loginTime = new DateTime[64];
 
     private enum PrintTo
     {
@@ -55,8 +55,8 @@ public class Ranks : BasePlugin
             var playerName = player.PlayerName;
 
             Task.Run(() => OnClientAuthorizedAsync(player, playerName, id));
-            _loginTime[player.Index] = DateTime.UtcNow;
-            _userRankReset[player.Index] = false;
+            _loginTime[player.Slot] = DateTime.UtcNow;
+            _userRankReset[player.Slot] = false;
         });
 
 
@@ -84,15 +84,14 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>((@event, _) =>
         {
             var player = @event.Userid;
-            var entityIndex = player.Index;
 
-            _userRankReset[entityIndex] = null;
+            _userRankReset[player.Slot] = false;
 
             if (_users.TryGetValue(player.SteamID, out var user))
             {
                 var steamId = new SteamID(player.SteamID);
-                var totalTime = GetTotalTime(entityIndex);
-                _loginTime[entityIndex] = DateTime.MinValue;
+                var totalTime = GetTotalTime(player.Slot);
+                _loginTime[player.Slot] = DateTime.MinValue;
 
                 user.name = player.PlayerName;
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
@@ -120,12 +119,12 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-
-                var entityIndex = player.Index;
+                
                 var steamId = new SteamID(player.SteamID);
-                var totalTime = GetTotalTime(entityIndex);
+                var totalTime = GetTotalTime(player.Slot);
 
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
+                Task.Run(OnMapStartAsync);
             }
         }, TimerFlags.REPEAT);
 
@@ -170,31 +169,28 @@ public class Ranks : BasePlugin
             }
         }
 
-        if (_userRankReset[player.Index] != null)
+        if (_userRankReset[player.Slot])
         {
-            if (_userRankReset[player.Index]!.Value)
+            _userRankReset[player.Slot] = false;
+            switch (msg)
             {
-                _userRankReset[player.Index] = false;
-                switch (msg)
-                {
-                    case "confirm":
-                        SendMessageToSpecificChat(player, Localizer["reset.Successfully"]);
-                        var index = player.Index;
-                        var name = player.PlayerName;
-                        var steamId = new SteamID(player.SteamID);
-                        Task.Run(() => ResetRank(index, name, steamId));
-                        return HookResult.Handled;
-                    case "cancel":
-                        SendMessageToSpecificChat(player, Localizer["reset.Aborted"]);
-                        return HookResult.Handled;
-                }
+                case "confirm":
+                    SendMessageToSpecificChat(player, Localizer["reset.Successfully"]);
+                    var slot = player.Slot;
+                    var name = player.PlayerName;
+                    var steamId = new SteamID(player.SteamID);
+                    Task.Run(() => ResetRank(slot, name, steamId));
+                    return HookResult.Handled;
+                case "cancel":
+                    SendMessageToSpecificChat(player, Localizer["reset.Aborted"]);
+                    return HookResult.Handled;
             }
         }
 
         return HookResult.Continue;
     }
 
-    private async Task ResetRank(uint index, string name, SteamID steamId)
+    private async Task ResetRank(int slot, string name, SteamID steamId)
     {
         var steamId2 = ReplaceFirstCharacter(steamId.SteamId2);
 
@@ -207,7 +203,7 @@ public class Ranks : BasePlugin
                 name = name,
                 value = _config.InitialExperiencePoints
             };
-            _loginTime[index] = DateTime.UtcNow;
+            _loginTime[slot] = DateTime.UtcNow;
         });
     }
 
@@ -437,7 +433,7 @@ public class Ranks : BasePlugin
         menu.AddMenuOption("Ranks", (player, _) => ChatMenus.OpenMenu(player, ranksMenu));
         menu.AddMenuOption("Reset Rank", (player, _) =>
         {
-            _userRankReset[player.Index] = true;
+            _userRankReset[player.Slot] = true;
             SendMessageToSpecificChat(player, Localizer["reset"]);
         });
 
@@ -825,9 +821,11 @@ public class Ranks : BasePlugin
         }
     }
 
-    private TimeSpan GetTotalTime(uint entityIndex)
+    private TimeSpan GetTotalTime(int slot)
     {
-        var totalTime = DateTime.UtcNow - _loginTime[entityIndex];
+        var totalTime = DateTime.UtcNow - _loginTime[slot];
+
+        _loginTime[slot] = DateTime.UtcNow;
 
         return totalTime;
     }
