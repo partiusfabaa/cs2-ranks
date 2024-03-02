@@ -17,6 +17,7 @@
   "raising_bomb": "for raising the bomb",
   "planting_bomb": "for planting the bomb",
   "suicide": "for suicide",
+  "next_level": "(Next level: {green}{0}{default})",
   "NotEnoughPlayers": "There are not enough players on the server:{blue} {0}{default} out of{blue} {1}{default}. Gaining experience is temporarily unavailable",
   "rank.YourPosition": "Your position in the top: {blue}#{0}/{1}",
   "rank.Experience": "Experience: {green}{0}{default} (Rank:{green} {1}{default}) | Score: {green}{2}",
