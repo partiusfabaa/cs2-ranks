@@ -15,13 +15,13 @@ using MySqlConnector;
 
 namespace Ranks;
 
-[MinimumApiVersion(141)]
+[MinimumApiVersion(150)]
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks for [LevelsRanks database]";
-    public override string ModuleVersion => "v1.0.6.4";
+    public override string ModuleVersion => "v1.0.6.5";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -513,6 +513,8 @@ public class Ranks : BasePlugin
 
         foreach (var player in validPlayers)
         {
+            if (!_users.ContainsKey(player.SteamID)) continue;
+            
             var topPlayerIndex =
                 _topPlayers.FindIndex(t => t.steam == ReplaceFirstCharacter(new SteamID(player.SteamID).SteamId2));
 
