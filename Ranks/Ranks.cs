@@ -7,6 +7,7 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -21,7 +22,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks";
-    public override string ModuleVersion => "v1.0.6.5";
+    public override string ModuleVersion => "v1.0.6.6";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -52,9 +53,8 @@ public class Ranks : BasePlugin
 
             if (player.IsBot) return;
             var playerName = player.PlayerName;
-            var steamId = id;
 
-            Task.Run(() => OnClientAuthorizedAsync(player, playerName, steamId));
+            Task.Run(() => OnClientAuthorizedAsync(player, playerName, id));
             _loginTime[player.Slot] = DateTime.Now;
             _userRankReset[player.Slot] = false;
         });
@@ -71,7 +71,7 @@ public class Ranks : BasePlugin
             {
                 var steamId = new SteamID(player.SteamID);
                 var totalTime = GetTotalTime(player.Slot);
-                
+
                 user.username = player.PlayerName;
                 Task.Run(() => UpdateUserStatsDb(steamId, user, totalTime));
                 _users.Remove(player.SteamID, out var _);
@@ -98,7 +98,7 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-                
+
                 var steamId = new SteamID(player.SteamID);
                 var totalTime = GetTotalTime(player.Slot);
 
@@ -110,13 +110,36 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
-        
+
         AddCommand("css_rank", "", OnCmdRank);
         AddCommand("css_top", "", OnCmdTop);
+        
+        VirtualFunctions.CCSPlayerPawnBase_PostThinkFunc.Hook(_ =>
+        {
+            if (!_config.ShowRanksInTheTab) return HookResult.Continue;
+
+            foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid))
+            {
+                if (!_users.TryGetValue(player.SteamID, out var user)) continue;
+
+                player.CompetitiveRankType = (sbyte)(_config.RankType == 0 ? 11 : 12);
+                player.CompetitiveRanking = _config.RankType == 0 ? user.experience : user.last_level >= 19 ? 18 : user.last_level;
+            }
+
+            return HookResult.Continue;
+        }, HookMode.Post);
     }
 
     private void OnMapStart(string mapName)
     {
+        foreach (var gameRulesProxy in Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules"))
+        {
+            var gameRules = gameRulesProxy.GameRules;
+            if (gameRules == null) continue;
+
+            gameRules.IsQueuedMatchmaking = _config.ShowRanksInTheTab;
+        }
+
         Task.Run(OnMapStartAsync);
     }
 
@@ -131,7 +154,7 @@ public class Ranks : BasePlugin
 
         _topPlayers = topPlayers.ToList();
     }
-    
+
     private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null) return HookResult.Continue;
@@ -250,7 +273,7 @@ public class Ranks : BasePlugin
         var victim = @event.Userid;
         var attacker = @event.Attacker;
         var assister = @event.Assister;
-        
+
         if (_config.MinPlayers > PlayersCount())
             return HookResult.Continue;
 
@@ -335,9 +358,9 @@ public class Ranks : BasePlugin
             user.experience -= exp;
 
         if (increase)
-            user.score ++;
+            user.score++;
         else
-            user.score --;
+            user.score--;
 
         user.kills += kills;
         user.deaths += death;
@@ -464,7 +487,7 @@ public class Ranks : BasePlugin
         SendMessageToSpecificChat(player, "Tag\x06 enabled");
         player.Clan = Regex.Replace(GetLevelFromExperience(user.experience).Name, @"\{[A-Za-z]+}", "");
     }
-    
+
     public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
     {
         if (controller == null) return;
@@ -509,7 +532,7 @@ public class Ranks : BasePlugin
                 "-------------------------------------------------------------------");
         });
     }
-    
+
     public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
     {
         if (controller == null) return;
@@ -519,7 +542,7 @@ public class Ranks : BasePlugin
         foreach (var player in validPlayers)
         {
             if (!_users.ContainsKey(player.SteamID)) continue;
-            
+
             var topPlayerIndex =
                 _topPlayers.FindIndex(t => t.steamid == new SteamID(player.SteamID).SteamId2);
 
@@ -539,7 +562,7 @@ public class Ranks : BasePlugin
         foreach (var player in topPlayersSorted)
         {
             if (!controller.IsValid) return;
-            controller.PrintToChat(Localizer["top.Players", rank ++, player.username,
+            controller.PrintToChat(Localizer["top.Players", rank++, player.username,
                 ReplaceColorTags(GetLevelFromExperience(player.experience).Name), player.experience,
                 player.kdr.ToString("F1")]);
         }
@@ -575,7 +598,7 @@ public class Ranks : BasePlugin
 
             if (_config.MinPlayers > PlayersCount()) return HookResult.Continue;
 
-            for (var i = 1; i < Server.MaxPlayers; i ++)
+            for (var i = 1; i < Server.MaxPlayers; i++)
             {
                 var player = Utilities.GetPlayerFromIndex(i);
 
@@ -899,6 +922,8 @@ public class Ranks : BasePlugin
             ShowExperienceMessages = true,
             MinPlayers = 4,
             InitialExperiencePoints = 100,
+            ShowRanksInTheTab = true,
+            RankType = 0,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
@@ -1012,7 +1037,7 @@ public class Ranks : BasePlugin
             $"{ChatColors.Orange}"
         };
 
-        for (var i = 0; i < colorPatterns.Length; i ++)
+        for (var i = 0; i < colorPatterns.Length; i++)
             input = input.Replace(colorPatterns[i], colorReplacements[i]);
 
         return input;
@@ -1043,6 +1068,8 @@ public class Config
     public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
     public int InitialExperiencePoints { get; init; }
+    public bool ShowRanksInTheTab { get; init; }
+    public int RankType { get; init; }
     public EventsExpSettings Events { get; init; } = null!;
     public Dictionary<string, int> Weapon { get; init; } = null!;
     public Dictionary<string, int> Ranks { get; init; } = null!;

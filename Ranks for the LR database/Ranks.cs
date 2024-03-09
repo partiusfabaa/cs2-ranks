@@ -7,6 +7,7 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -21,7 +22,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "Ranks for [LevelsRanks database]";
-    public override string ModuleVersion => "v1.0.6.5";
+    public override string ModuleVersion => "v1.0.6.6";
 
     private static string _dbConnectionString = string.Empty;
 
@@ -119,7 +120,7 @@ public class Ranks : BasePlugin
             foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
             {
                 if (!_users.TryGetValue(player.SteamID, out var user)) continue;
-                
+
                 var steamId = new SteamID(player.SteamID);
                 var totalTime = GetTotalTime(player.Slot);
 
@@ -132,10 +133,33 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
+
+        VirtualFunctions.CCSPlayerPawnBase_PostThinkFunc.Hook(_ =>
+        {
+            if (!_config.ShowRanksInTheTab) return HookResult.Continue;
+
+            foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid))
+            {
+                if (!_users.TryGetValue(player.SteamID, out var user)) continue;
+
+                player.CompetitiveRankType = (sbyte)(_config.RankType == 0 ? 11 : 12);
+                player.CompetitiveRanking = _config.RankType == 0 ? user.value : user.rank >= 19 ? 18 : user.rank;
+            }
+
+            return HookResult.Continue;
+        }, HookMode.Post);
     }
 
     private void OnMapStart(string mapName)
     {
+        foreach (var gameRulesProxy in Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules"))
+        {
+            var gameRules = gameRulesProxy.GameRules;
+            if (gameRules == null) continue;
+
+            gameRules.IsQueuedMatchmaking = _config.ShowRanksInTheTab;
+        }
+
         Task.Run(OnMapStartAsync);
     }
 
@@ -514,7 +538,7 @@ public class Ranks : BasePlugin
         foreach (var player in validPlayers)
         {
             if (!_users.ContainsKey(player.SteamID)) continue;
-            
+
             var topPlayerIndex =
                 _topPlayers.FindIndex(t => t.steam == ReplaceFirstCharacter(new SteamID(player.SteamID).SteamId2));
 
@@ -536,7 +560,7 @@ public class Ranks : BasePlugin
             if (!controller.IsValid) continue;
 
             controller.PrintToChat(
-                $"{rank ++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
+                $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
         }
     }
 
@@ -571,7 +595,7 @@ public class Ranks : BasePlugin
 
             if (_config.MinPlayers > PlayersCount()) return HookResult.Continue;
 
-            for (var i = 1; i < Server.MaxPlayers; i ++)
+            for (var i = 1; i < Server.MaxPlayers; i++)
             {
                 var player = Utilities.GetPlayerFromIndex(i);
 
@@ -892,6 +916,8 @@ public class Ranks : BasePlugin
             ShowExperienceMessages = true,
             MinPlayers = 4,
             InitialExperiencePoints = 500,
+            ShowRanksInTheTab = false,
+            RankType = 0,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
@@ -983,6 +1009,7 @@ public class Ranks : BasePlugin
         switch (print)
         {
             case PrintTo.Chat:
+                if (!handle.IsValid) return;
                 handle.PrintToChat($"{colorText} {msg}");
                 return;
             case PrintTo.ChatAll:
@@ -1015,7 +1042,7 @@ public class Ranks : BasePlugin
             $"{ChatColors.Orange}"
         };
 
-        for (var i = 0; i < colorPatterns.Length; i ++)
+        for (var i = 0; i < colorPatterns.Length; i++)
             input = input.Replace(colorPatterns[i], colorReplacements[i]);
 
         return input;
@@ -1047,6 +1074,8 @@ public class Config
     public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
     public int InitialExperiencePoints { get; init; }
+    public bool ShowRanksInTheTab { get; init; }
+    public int RankType { get; init; }
     public EventsExpSettings Events { get; init; } = null!;
     public Dictionary<string, int> Weapon { get; init; } = null!;
     public Dictionary<string, int> Ranks { get; init; } = null!;
