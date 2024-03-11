@@ -38,16 +38,7 @@ public class RanksExStatsGeoIp : BasePlugin
                 Logger.LogError("The IP address of the player {player} is null!", player.PlayerName);
                 return;
             }
-
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine("ONCLIENTAUTHORIZED");
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
+            
             Task.Run(() => OnClientAuthorizedAsync(steamId, ip.Split(':')[0]));
         });
     }
@@ -76,11 +67,6 @@ public class RanksExStatsGeoIp : BasePlugin
     {
         try
         {
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            Console.WriteLine(1);
-            
             using var reader = new DatabaseReader(Path.Combine(ModuleDirectory, "GeoLite2-City.mmdb"));
 
             var response = reader.City(IPAddress.Parse(ip));
