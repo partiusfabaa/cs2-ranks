@@ -42,5 +42,9 @@
   "menu.reset.yes": "Jā!",
   "menu.reset.complete": "Jūs veiksmīgi atiestatījāt savu rangu!",
   "menu.reset.no": "Nē!",
-  "menu.reset.canceled": "Ranga atiestatīšana atcelta!"
+  "menu.reset.canceled": "Ranga atiestatīšana atcelta!",
+  "command.give_exp": "Jūs veiksmīgi devāt {red}{0} pieredzi spēlētājam {1}.",
+  "command.target.give_exp": "Administrators {0} jums piešķīra {red}{1} pieredzi.",
+  "command.take_exp": "Jūs veiksmīgi noņēmāt {red}{0} pieredzi no spēlētāja {1}.",
+  "command.target.take_exp": "Administrators {0} no jums atņēma {red}{1} pieredzi."
 }

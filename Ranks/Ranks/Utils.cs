@@ -28,20 +28,16 @@ public static class Utils
         return string.Empty;
     }
 
-    public static CCSPlayerController? GetPlayer(string steamId)
+    public static CCSPlayerController? GetPlayer(string input)
     {
         var players = Utilities.GetPlayers();
-        if (steamId.StartsWith("#"))
+        if (input.StartsWith("#"))
         {
-            if (!int.TryParse(steamId.Trim('#'), out var value)) return null;
+            if (!int.TryParse(input.Trim('#'), out var value)) return null;
             
             return players.Find(p => p.Slot == value);
         }
 
-        return players.FirstOrDefault(u =>
-            u.AuthorizedSteamID != null &&
-            (u.AuthorizedSteamID.SteamId2.ToString().Equals(steamId) ||
-             u.AuthorizedSteamID.SteamId64.ToString().Equals(steamId) ||
-             u.AuthorizedSteamID.AccountId.ToString().Equals(steamId)));
+        return players.FirstOrDefault(u => u.PlayerName.Contains(input));
     }
 }

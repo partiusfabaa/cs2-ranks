@@ -42,5 +42,9 @@
   "menu.reset.yes": "Так!",
   "menu.reset.complete": "Ви успішно скинули свій ранг!",
   "menu.reset.no": "Ні!",
-  "menu.reset.canceled": "Скидання рангу скасовано!"
+  "menu.reset.canceled": "Скидання рангу скасовано!",
+  "command.give_exp": "Ви успішно дали {red}{0} досвіду гравцю {1}",
+  "command.target.give_exp": "Адміністратор {0} видав вам досвід у кількості {red}{1}",
+  "command.take_exp": "Ви успішно забрали {red}{0} досвіду у гравця {1}",
+  "command.target.take_exp": "Адміністратор {0} забрав у вас досвід у кількості {red}{1}"
 }

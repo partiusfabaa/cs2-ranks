@@ -42,5 +42,9 @@
   "menu.reset.yes": "Yes!",
   "menu.reset.complete": "You have successfully reset your rank!",
   "menu.reset.no": "No!",
-  "menu.reset.canceled": "Rank reset canceled!"
+  "menu.reset.canceled": "Rank reset canceled!",
+  "command.give_exp": "You have successfully given {red}{0} experience to player {1}.",
+  "command.target.give_exp": "Administrator {0} has given you {red}{1} experience.",
+  "command.take_exp": "You have successfully taken {red}{0} experience from player {1}.",
+  "command.target.take_exp": "Administrator {0} has taken {red}{1} experience from you."
 }

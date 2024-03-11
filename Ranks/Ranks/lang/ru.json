@@ -42,5 +42,9 @@
   "menu.reset.yes": "Да!",
   "menu.reset.complete": "Вы успешно сбросили свой ранг!",
   "menu.reset.no": "Нет!",
-  "menu.reset.canceled": "Сброс ранга отменен!"
+  "menu.reset.canceled": "Сброс ранга отменен!",
+  "command.give_exp": "Вы успешно дали {red}{0} опыта игроку {1}",
+  "command.target.give_exp": "Администратор {0} выдал вам опыт в количестве {red}{1}",
+  "command.take_exp": "Вы успешно забрали {red}{0} опыта у игрока {1}",
+  "command.target.take_exp": "Администратор {0} забрал у вас опыт в количестве {red}{1}"
 }

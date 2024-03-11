@@ -42,6 +42,10 @@
     "menu.reset.yes": "نعم!",
     "menu.reset.complete": "لقد قمت بإعادة تعيين رتبتك بنجاح!",
     "menu.reset.no": "لا!",
-    "menu.reset.canceled": "تم إلغاء إعادة تعيين الرتبة!"
+    "menu.reset.canceled": "تم إلغاء إعادة تعيين الرتبة!",
+    "command.give_exp": "لقد قمت بإعطاء {red}{0} تجربة بنجاح للاعب {1}",
+    "command.target.give_exp": "المسؤول {0} قد منحك {red}{1} تجربة.",
+    "command.take_exp": "لقد قمت بأخذ {red}{0} تجربة بنجاح من اللاعب {1}",
+    "command.target.take_exp": "المسؤول {0} قد أخذ {red}{1} تجربة منك."
   }
   

@@ -224,6 +224,8 @@ public class Ranks : BasePlugin
             exp = int.TryParse(info.GetArg(2), out var value) ? value : 0;
         
         RanksApi.GivePlayerExperience(target, exp);
+        ReplyToCommand(player, Localizer["command.give_exp", exp, target.PlayerName]);
+        ReplyToCommand(target, Localizer["command.target.give_exp", player?.PlayerName ?? "Console", exp]);
     }
     
     [RequiresPermissions("@css/root")]
@@ -244,6 +246,8 @@ public class Ranks : BasePlugin
             exp = int.TryParse(info.GetArg(2), out var value) ? value : 0;
         
         RanksApi.TakePlayerExperience(target, exp);
+        ReplyToCommand(player, Localizer["command.take_exp", exp, target.PlayerName]);
+        ReplyToCommand(target, Localizer["command.target.take_exp", player?.PlayerName ?? "Console", exp]);
     }
 
     [ConsoleCommand("css_lr_reload")]
