@@ -11,11 +11,6 @@ Players earn experience points for various in-game achievements, such as kills, 
 # Level Progression
 Players progress through levels based on their experience points. Level achievements are announced in the chat, providing recognition for their dedication and skill.
 
-# Dynamic Clan Tags
-Players' clan tags dynamically change based on their current level, allowing others to see their rank at a glance.
-
-<img src="https://github.com/partiusfabaa/cs2-ranks/assets/96542489/898dbf34-f262-4950-b003-1d5d45a68f1f" width="206" height="45">
-
 # Events and Rewards
 The plugin tracks events like round victories, defeats, and MVP awards, awarding or deducting experience points accordingly.
 
@@ -41,11 +36,13 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 | Command          | Description                      |
 |------------------|-------------------------------|
-| `css_lr_reload` | reloads the configuration (server console only)          |
+| `css_lr_reload` | reloads the configuration (server console only) |
 | `css_lvl` or `!lvl` | opens a menu where you can view all ranks |
 | `css_top` or `!top` or `top` | displaying the top 10 players in chat |
-| `css_rank` or `!rank` or `rank` | chat statistics display  |
-| `css_rank_tag` or `!rank_tag` | allows to place and delete a rank on the tab |
+| `css_rank` or `!rank` or `rank` | chat statistics display  | 
+| `css_lr_giveexp <username or #userid> [exp (def. 0)]` (@css/root) | allows you to give the player experience |
+| `css_lr_takeexp <username or #userid> [exp (def. 0)]` (@css/root) | allows you to take away a player experience |
+| `css_lr_enabled 1/0` | allows you to disable ranks (useful for minigame servers) (ONLY SERVER CONSOLE) you can put it in the cfg |
 
 
 # Config
@@ -54,7 +51,6 @@ Server administrators can fine-tune the plugin's behavior, including experience 
 
 - **TableName**: "lvl_base",    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; // Database table name
 - **Prefix**: "[ {BLUE}Ranks {DEFAULT}]"    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Chat prefix
-- **EnableScoreBoardRanks**: true    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is tag included in the scoreboard? true - yes | false - no
 - **UseCommandWithoutPrefix**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Is it possible to write `top` and `rank` without the prefix? true - yes | false - no
 - **ShowExperienceMessages**: true  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Do I show the player chat messages how much experience he has gained? true - yes | false - no.
 - **MinPlayers**: 4    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Minimum number of players to gain experience
