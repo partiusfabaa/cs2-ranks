@@ -15,79 +15,35 @@ Ranks/.idea
 *.user
 *.cache
 *.editorconfig
-Ranks/obj/Debug/net7.0/Ranks.AssemblyInfo.cs
-Ranks/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-Ranks/obj/Debug/net7.0/Ranks.GlobalUsings.g.cs
-Ranks/obj/Ranks.csproj.nuget.dgspec.json
-Ranks/obj/Ranks.csproj.nuget.g.props
-Ranks/obj/Ranks.csproj.nuget.g.targets
-Ranks/obj/project.assets.json
-Ranks/obj/project.packagespec.json
-Ranks/obj/rider.project.restore.info
-*.dll
-*.pdb
-*.CopyComplete
-*.txt
-Ranks/obj/release/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-Ranks/obj/release/net7.0/Ranks.AssemblyInfo.cs
-Ranks/obj/release/net7.0/Ranks.GlobalUsings.g.cs
-Ranks/obj/Ranks.csproj.EntityFrameworkCore.targets
-Ranks.zip
-*.xml
-Ranks/EventsExpSettings.cs
-*.targets
-Ranks/obj/rider.project.restore.info
-Ranks/obj/RanksRise.csproj.nuget.g.props
-Ranks/obj/Debug/net7.0/RanksRise.GlobalUsings.g.cs
-Ranks/obj/Debug/net7.0/RanksRise.AssemblyInfo.cs
-Ranks/obj/Debug/net7.0/Ranks.GlobalUsings.g.cs
-Ranks/obj/Debug/net7.0/Ranks.AssemblyInfo.cs
-Ranks/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-Ranks for the LR database/obj/Debug/net7.0/Ranks.AssemblyInfo.cs
-Ranks for the LR database/obj/Debug/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-Ranks for the LR database/obj/Debug/net7.0/Ranks.GlobalUsings.g.cs
-Ranks for the LR database/obj/Ranks.csproj.nuget.g.props
-Ranks for the LR database/obj/release/net7.0/.NETCoreApp,Version=v7.0.AssemblyAttributes.cs
-Ranks for the LR database/obj/release/net7.0/Ranks.AssemblyInfo.cs
-Ranks for the LR database/obj/release/net7.0/Ranks.GlobalUsings.g.cs
-Ranks for the LR database/obj/rider.project.restore.info
-Ranks for the LR database/obj/rider.project.model.nuget.info
-Ranks/obj/rider.project.model.nuget.info
-Ranks for the LR database/bin/release/net7.0/publish/Ranks for the LR database.zip
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
-Ranks for the LR database/bin/release/net7.0/publish/Ranks.deps.json
-Ranks for the LR database/bin/release/net7.0/Ranks.deps.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ru.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/en.json
-Ranks for the LR database/obj/project.assets.json
-Ranks for the LR database/obj/project.packagespec.json
-Ranks for the LR database/obj/Ranks.csproj.nuget.dgspec.json
-Ranks for the LR database/bin/release/net7.0/publish/Ranks-for-the-LR-database.rar
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
-Ranks/bin/release/net7.0/publish/Ranks.deps.json
-Ranks/bin/release/net7.0/Ranks.deps.json
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/en.json
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ru.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/lv.json
-Ranks for the LR database/bin/release/net7.0/publish/Ranks-for-the-LR-database.zip
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/lv.json
-Ranks for the LR database/bin/release/net7.0/publish/Ranks-for-the-LR-database-141.zip
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ua.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ua.json
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ua.json
-Ranks for the LR database/obj/release/net7.0/Ranks.sourcelink.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ua.json
-Ranks/obj/release/net7.0/Ranks.sourcelink.json
-Ranks/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ar.json
-Ranks for the LR database/bin/release/net7.0/publish/addons/counterstrikesharp/plugins/Ranks/lang/ar.json
-Ranks/obj/Debug/net7.0/Ranks.sourcelink.json
-Ranks for the LR database/obj/Debug/net7.0/Ranks.sourcelink.json
-Ranks for the LR database/bin/Debug/net7.0/Ranks.deps.json
-Ranks for the LR database/bin/Debug/net7.0/publish/Ranks.deps.json
-Ranks/bin/Debug/net7.0/Ranks.deps.json
-Ranks/bin/Debug/net7.0/publish/Ranks.deps.json
-Ranks/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
-Ranks/addons/counterstrikesharp/plugins/Ranks/lang
-Ranks for the LR database/addons/counterstrikesharp/plugins/Ranks/lang
-Ranks for the LR database/Ranks_for_levelsranks_database.zip
-Ranks for the LR database/addons/counterstrikesharp/plugins/Ranks/Ranks.deps.json
+
+Ranks/Ranks/.idea
+Ranks/Ranks/bin
+Ranks/Ranks/obj
+Ranks/Ranks/addons
+
+Ranks/RanksApi/.idea
+Ranks/RanksApi/bin
+Ranks/RanksApi/obj
+
+Ranks/Modules/Ranks_FakeRank
+Ranks/Modules/Ranks_FakeRank/.idea
+Ranks/Modules/Ranks_FakeRank/bin
+Ranks/Modules/Ranks_FakeRank/obj
+Ranks/Modules/Ranks_FakeRank/addons
+
+Ranks/Modules/Ranks_ExStats_GeoIP/.idea
+Ranks/Modules/Ranks_ExStats_GeoIP/bin
+Ranks/Modules/Ranks_ExStats_GeoIP/obj
+Ranks/Modules/Ranks_ExStats_GeoIP/addons
+
+unsupported/Ranks/.idea
+unsupported/Ranks/bin
+unsupported/Ranks/obj
+
+unsupported/Ranks for the LR database/.idea
+unsupported/Ranks for the LR database/bin
+unsupported/Ranks for the LR database/obj
+
+unsupported/LvlRanks_with_modularity/.idea
+unsupported/LvlRanks_with_modularity/bin
+unsupported/LvlRanks_with_modularity/obj
