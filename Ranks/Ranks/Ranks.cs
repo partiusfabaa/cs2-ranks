@@ -26,7 +26,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "[Ranks] Core";
-    public override string ModuleVersion => "v2.0.0";
+    public override string ModuleVersion => "v2.0.1";
 
     public string DbConnectionString = string.Empty;
 
