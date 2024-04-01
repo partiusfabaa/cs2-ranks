@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
@@ -14,6 +15,7 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
+using Ranks.Api;
 using RanksApi;
 
 namespace Ranks;
@@ -26,13 +28,11 @@ public class Ranks : BasePlugin
     public override string ModuleName => "[Ranks] Core";
     public override string ModuleVersion => "v2.0.0";
 
-    private readonly PluginCapability<IRanksApi> _pluginCapability = new("ranks-core:api");
-
     public string DbConnectionString = string.Empty;
 
     public Config Config = null!;
     public Database Database;
-    public RanksApi RanksApi;
+    public Api.RanksApi RanksApi;
 
     public readonly ConcurrentDictionary<ulong, User> Users = new();
     private readonly DateTime[] _loginTime = new DateTime[64];
@@ -41,8 +41,8 @@ public class Ranks : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        RanksApi = new RanksApi(this, ModuleDirectory);
-        Capabilities.RegisterPluginCapability(_pluginCapability, () => RanksApi);
+        RanksApi = new Api.RanksApi(this, ModuleDirectory);
+        Capabilities.RegisterPluginCapability(IRanksApi.Capability, () => RanksApi);
         
         Config = LoadConfig();
         DbConnectionString = BuildConnectionString();
@@ -747,27 +747,7 @@ public class Ranks : BasePlugin
 
     private string ReplaceColorTags(string input)
     {
-        string[] colorPatterns =
-        {
-            "{DEFAULT}", "{WHITE}", "{DARKRED}", "{GREEN}", "{LIGHTYELLOW}", "{LIGHTBLUE}", "{OLIVE}", "{LIME}",
-            "{RED}", "{LIGHTPURPLE}", "{PURPLE}", "{GREY}", "{YELLOW}", "{GOLD}", "{SILVER}", "{BLUE}", "{DARKBLUE}",
-            "{BLUEGREY}", "{MAGENTA}", "{LIGHTRED}", "{ORANGE}"
-        };
-
-        string[] colorReplacements =
-        {
-            $"{ChatColors.Default}", $"{ChatColors.White}", $"{ChatColors.Darkred}", $"{ChatColors.Green}",
-            $"{ChatColors.LightYellow}", $"{ChatColors.LightBlue}", $"{ChatColors.Olive}", $"{ChatColors.Lime}",
-            $"{ChatColors.Red}", $"{ChatColors.LightPurple}", $"{ChatColors.Purple}", $"{ChatColors.Grey}",
-            $"{ChatColors.Yellow}", $"{ChatColors.Gold}", $"{ChatColors.Silver}", $"{ChatColors.Blue}",
-            $"{ChatColors.DarkBlue}", $"{ChatColors.BlueGrey}", $"{ChatColors.Magenta}", $"{ChatColors.LightRed}",
-            $"{ChatColors.Orange}"
-        };
-
-        for (var i = 0; i < colorPatterns.Length; i++)
-            input = input.Replace(colorPatterns[i], colorReplacements[i]);
-
-        return input;
+        return input.ReplaceColorTags();
     }
 
     private TimeSpan GetTotalTime(int slot)

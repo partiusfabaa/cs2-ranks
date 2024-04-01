@@ -2,7 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using RanksApi;
 
-namespace Ranks;
+namespace Ranks.Api;
 
 public class RanksApi : IRanksApi
 {
@@ -36,7 +36,6 @@ public class RanksApi : IRanksApi
 
     public void SetPlayerExperience(CCSPlayerController player, int exp)
     {
-        if (!_ranks.IsRanksEnabled) return;
         if (!_ranks.Users.TryGetValue(player.SteamID, out var user)) return;
 
         user.value = exp;
@@ -44,7 +43,6 @@ public class RanksApi : IRanksApi
 
     public void GivePlayerExperience(CCSPlayerController player, int exp)
     {
-        if (!_ranks.IsRanksEnabled) return;
         if (!_ranks.Users.TryGetValue(player.SteamID, out var user)) return;
 
         user.value += exp;
@@ -52,7 +50,6 @@ public class RanksApi : IRanksApi
     
     public void TakePlayerExperience(CCSPlayerController player, int exp)
     {
-        if (!_ranks.IsRanksEnabled) return;
         if (!_ranks.Users.TryGetValue(player.SteamID, out var user)) return;
 
         user.value -= exp;

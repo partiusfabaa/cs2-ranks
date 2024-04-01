@@ -15,6 +15,7 @@ Ranks/.idea
 *.user
 *.cache
 *.editorconfig
+*.zip
 
 Ranks/Ranks/.idea
 Ranks/Ranks/bin
@@ -26,16 +27,18 @@ Ranks/RanksApi/.idea
 Ranks/RanksApi/bin
 Ranks/RanksApi/obj
 
-Ranks/Modules/Ranks_FakeRank
-Ranks/Modules/Ranks_FakeRank/.idea
-Ranks/Modules/Ranks_FakeRank/bin
-Ranks/Modules/Ranks_FakeRank/obj
-Ranks/Modules/Ranks_FakeRank/addons
+Ranks/Modules
+Ranks/Modules/
 
-Ranks/Modules/Ranks_ExStats_GeoIP/.idea
-Ranks/Modules/Ranks_ExStats_GeoIP/bin
-Ranks/Modules/Ranks_ExStats_GeoIP/obj
-Ranks/Modules/Ranks_ExStats_GeoIP/addons
+Ranks/Ranks_ExStats_GeoIP/.idea
+Ranks/Ranks_ExStats_GeoIP/bin
+Ranks/Ranks_ExStats_GeoIP/obj
+Ranks/Ranks_ExStats_GeoIP/addons
+
+Ranks/Ranks_ExStats_Hits/.idea
+Ranks/Ranks_ExStats_Hits/bin
+Ranks/Ranks_ExStats_Hits/obj
+Ranks/Ranks_ExStats_Hits/addons
 
 unsupported/Ranks/.idea
 unsupported/Ranks/bin
@@ -48,4 +51,3 @@ unsupported/Ranks for the LR database/obj
 unsupported/LvlRanks_with_modularity/.idea
 unsupported/LvlRanks_with_modularity/bin
 unsupported/LvlRanks_with_modularity/obj
-Ranks/Ranks.zip

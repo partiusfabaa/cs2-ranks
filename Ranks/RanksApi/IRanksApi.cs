@@ -1,9 +1,12 @@
 ﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Capabilities;
 
 namespace RanksApi;
 
 public interface IRanksApi
 {
+    public static PluginCapability<IRanksApi> Capability { get; } = new("ranks-core:api");
+    
     event Action<CCSPlayerController, int, bool>? RankChanged;
     event Func<CCSPlayerController, int, int?>? PlayerGainedExperience;
     event Func<CCSPlayerController, int, int?>? PlayerLostExperience;

@@ -6,7 +6,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RanksApi", "RanksApi\RanksA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ranks_FakeRank", "Modules\Ranks_FakeRank\Ranks_FakeRank.csproj", "{AD76FC9A-61EC-4EBA-86B8-DFBB7364CDBB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ranks_ExStats_GeoIP", "Modules\Ranks_ExStats_GeoIP\Ranks_ExStats_GeoIP.csproj", "{D8A75D20-92D4-47F3-A45D-59EAAE3BDF9C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ranks_ExStats_GeoIP", "Ranks_ExStats_GeoIP\Ranks_ExStats_GeoIP.csproj", "{84BEAAEE-2DA0-41B7-A9F4-010DF8B60A73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ranks_ExStats_Hits", "Ranks_ExStats_Hits\Ranks_ExStats_Hits.csproj", "{98617ED2-7EEF-4C0D-B598-A409DF099EFE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,9 +28,13 @@ Global
 		{AD76FC9A-61EC-4EBA-86B8-DFBB7364CDBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD76FC9A-61EC-4EBA-86B8-DFBB7364CDBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD76FC9A-61EC-4EBA-86B8-DFBB7364CDBB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D8A75D20-92D4-47F3-A45D-59EAAE3BDF9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D8A75D20-92D4-47F3-A45D-59EAAE3BDF9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D8A75D20-92D4-47F3-A45D-59EAAE3BDF9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D8A75D20-92D4-47F3-A45D-59EAAE3BDF9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84BEAAEE-2DA0-41B7-A9F4-010DF8B60A73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84BEAAEE-2DA0-41B7-A9F4-010DF8B60A73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84BEAAEE-2DA0-41B7-A9F4-010DF8B60A73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84BEAAEE-2DA0-41B7-A9F4-010DF8B60A73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98617ED2-7EEF-4C0D-B598-A409DF099EFE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98617ED2-7EEF-4C0D-B598-A409DF099EFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98617ED2-7EEF-4C0D-B598-A409DF099EFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98617ED2-7EEF-4C0D-B598-A409DF099EFE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
