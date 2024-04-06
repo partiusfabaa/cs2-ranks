@@ -444,7 +444,7 @@ public class Ranks : BasePlugin
                 });
 
                 subMenu.AddMenuOption(Localizer["menu.reset.no"],
-                    (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
+                    (controller, option) => PrintToChat(controller, Localizer["menu.reset.canceled"]));
                 
                 MenuManager.OpenChatMenu(player, subMenu);
             });
