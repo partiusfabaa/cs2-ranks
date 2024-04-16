@@ -11,7 +11,7 @@ public class RanksExStatsHits : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleName => "[Ranks] ExStats Hits";
-    public override string ModuleVersion => "v1.0.0";
+    public override string ModuleVersion => "v1.0.1";
 
     public readonly Dictionary<int, Dictionary<HitData, int>> Hits = new();
     private IRanksApi? _api;
@@ -40,7 +40,7 @@ public class RanksExStatsHits : BasePlugin
         if (player.IsBot) return;
         var steamId =
             new SteamID(player.AuthorizedSteamID == null ? player.SteamID : player.AuthorizedSteamID.SteamId64);
-        
+
         Task.Run(() => SavePlayerData(slot, steamId));
     }
 
@@ -52,7 +52,7 @@ public class RanksExStatsHits : BasePlugin
         Hits[player.Slot][HitData.HdDmgHealth] += @event.DmgHealth;
         Hits[player.Slot][HitData.HdDmgArmor] += @event.DmgArmor;
         Hits[player.Slot][(HitData)@event.Hitgroup]++;
-        
+
         return HookResult.Continue;
     }
 
@@ -102,14 +102,14 @@ public class RanksExStatsHits : BasePlugin
             Console.WriteLine(e);
         }
     }
-    
+
     private async Task SavePlayerData(int slot, SteamID steamId)
     {
         try
         {
             await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
             await connection.OpenAsync();
-            
+
             var updateQuery = $@"
                 UPDATE `{_api.DatabaseTableName}_hits`
                 SET DmgHealth = @DmgHealth,
@@ -138,7 +138,7 @@ public class RanksExStatsHits : BasePlugin
                 Neak = Hits[slot][HitData.HdHitNeak],
                 SteamId = ReplaceFirstCharacter(steamId.SteamId2)
             });
-            
+
             Hits.Remove(slot);
         }
         catch (Exception e)
@@ -159,7 +159,8 @@ public class RanksExStatsHits : BasePlugin
             var query = $"SELECT * FROM `{_api.DatabaseTableName}_hits` WHERE SteamId = @SteamId;";
             var hitsData = await connection.QueryFirstOrDefaultAsync(query, new { SteamId = steamId });
 
-            Hits.Add(slot, new Dictionary<HitData, int>());
+            Hits.Add(slot, Enum.GetValues(typeof(HitData)).Cast<HitData>().ToDictionary(hit => hit, hit => 0));
+            
             if (hitsData == null)
             {
                 await AddPlayerToDatabase(steamId);
