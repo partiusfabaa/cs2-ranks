@@ -39,6 +39,13 @@ Ranks/Ranks_ExStats_Hits/bin
 Ranks/Ranks_ExStats_Hits/obj
 Ranks/Ranks_ExStats_Hits/addons
 
+Ranks/Ranks.zip
+
+Ranks/Ranks_Tag/addons
+Ranks/Ranks_Tag/obj
+Ranks/Ranks_Tag/bin
+Ranks/Ranks_Tag/.idea
+
 unsupported/Ranks/.idea
 unsupported/Ranks/bin
 unsupported/Ranks/obj
@@ -50,4 +57,3 @@ unsupported/Ranks for the LR database/obj
 unsupported/LvlRanks_with_modularity/.idea
 unsupported/LvlRanks_with_modularity/bin
 unsupported/LvlRanks_with_modularity/obj
-Ranks/Ranks.zip

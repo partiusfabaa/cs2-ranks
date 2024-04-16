@@ -17,6 +17,7 @@ public interface IRanksApi
     bool IsRanksEnabled { get; }
     int GetPlayerExperience(CCSPlayerController player);
     int GetPlayerRank(CCSPlayerController player);
+    (string Name, int Level) GetLevelFromExperience(long experience);
     void SetPlayerExperience(CCSPlayerController player, int exp);
     void TakePlayerExperience(CCSPlayerController player, int exp);
     void GivePlayerExperience(CCSPlayerController player, int exp);

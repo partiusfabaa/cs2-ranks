@@ -2,7 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using RanksApi;
 
-namespace Ranks.Api;
+namespace Ranks;
 
 public class RanksApi : IRanksApi
 {
@@ -32,6 +32,11 @@ public class RanksApi : IRanksApi
     public int GetPlayerRank(CCSPlayerController player)
     {
         return _ranks.Users.TryGetValue(player.SteamID, out var user) ? user.rank : -1;
+    }
+
+    public (string Name, int Level) GetLevelFromExperience(long experience)
+    {
+        return _ranks.GetLevelFromExperience(experience);
     }
 
     public void SetPlayerExperience(CCSPlayerController player, int exp)

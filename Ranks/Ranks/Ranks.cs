@@ -15,7 +15,6 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
-using Ranks.Api;
 using RanksApi;
 
 namespace Ranks;
@@ -26,13 +25,13 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "[Ranks] Core";
-    public override string ModuleVersion => "v2.0.1";
+    public override string ModuleVersion => "v2.0.2";
 
     public string DbConnectionString = string.Empty;
 
     public Config Config = null!;
     public Database Database;
-    public Api.RanksApi RanksApi;
+    public RanksApi RanksApi;
 
     public readonly ConcurrentDictionary<ulong, User> Users = new();
     private readonly DateTime[] _loginTime = new DateTime[64];
@@ -41,7 +40,7 @@ public class Ranks : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        RanksApi = new Api.RanksApi(this, ModuleDirectory);
+        RanksApi = new RanksApi(this, ModuleDirectory);
         Capabilities.RegisterPluginCapability(IRanksApi.Capability, () => RanksApi);
         
         Config = LoadConfig();
@@ -205,6 +204,15 @@ public class Ranks : BasePlugin
             lastconnect = user.lastconnect
         };
     }
+    
+    [ConsoleCommand("css_rank")]
+    public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        var steamId = new SteamID(controller.SteamID);
+        Task.Run(() => GetUserStats(controller, steamId));
+    }
 
     [RequiresPermissions("@css/root")]
     [CommandHelper(2, "<username or #userid> [exp (def. 0)]")]
@@ -257,6 +265,34 @@ public class Ranks : BasePlugin
 
         Config = LoadConfig();
         Logger.LogInformation("Configuration successfully rebooted");
+    }
+    
+    [ConsoleCommand("css_top")]
+    public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        Task.Run(() => ShowTopPlayers(controller));
+    }
+    
+    private async Task ShowTopPlayers(CCSPlayerController controller)
+    {
+        var topPlayersSorted = await Database.GetTopPlayers();
+
+        if (topPlayersSorted == null) return;
+        
+        Server.NextFrame(() =>
+        {
+            controller.PrintToChat(Localizer["top.Title"]);
+            var rank = 1;
+            foreach (var player in topPlayersSorted)
+            {
+                if (!controller.IsValid) continue;
+    
+                controller.PrintToChat(
+                    $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
+            }
+        });
     }
 
     private HookResult EventPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
@@ -327,217 +363,7 @@ public class Ranks : BasePlugin
 
         return HookResult.Continue;
     }
-
-    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
-        int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
-        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
-    {
-        if (!IsRanksEnabled) return;
-        if (player == null || Config.MinPlayers > PlayersCount() ||
-            Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
-                .WarmupPeriod) return;
-
-        if (!Users.TryGetValue(player.SteamID, out var user)) return;
-
-        exp = exp == -1 ? 0 : exp;
-
-        if (increase)
-        {
-            var newExp = RanksApi.OnPlayerGainedExperience(player, exp);
-            user.value += newExp ?? exp;
-        }
-        else
-        {
-            var newExp = RanksApi.OnPlayerLostExperience(player, exp);
-            user.value -= newExp ?? exp;
-        }
-
-        user.kills += kills;
-        user.deaths += death;
-        user.assists += assist;
-        user.round_lose += roundlose;
-        user.round_win += roundwin;
-        user.headshots += headshots;
-        user.hits += hits;
-        user.shoots += shoots;
-
-        if (user.value <= 0) user.value = Config.InitialExperiencePoints;
-
-        var nextXp = GetExperienceToNextLevel(player);
-        if (exp != 0 && Config.ShowExperienceMessages)
-        {
-            Server.NextFrame(() => PrintToChat(player,
-                $"{(increase ? "\x0C+" : "\x02-")}{exp} XP \x08{msg} {(nextXp == 0 ? string.Empty : $"{Localizer["next_level", nextXp]}")}"));
-        }
-    }
-
-    private (string Name, int Level) GetLevelFromExperience(long experience)
-    {
-        foreach (var rank in Config.Ranks.OrderByDescending(pair => pair.Value))
-        {
-            if (experience >= rank.Value)
-                return (rank.Key, Config.Ranks.Count(pair => pair.Value <= rank.Value));
-        }
-
-        return (string.Empty, 0);
-    }
-
-    private long GetExperienceToNextLevel(CCSPlayerController player)
-    {
-        if (!Users.TryGetValue(player.SteamID, out var user)) return 0;
-
-        var currentExperience = user.value;
-
-        foreach (var rank in Config.Ranks.OrderBy(pair => pair.Value))
-        {
-            if (currentExperience < rank.Value)
-            {
-                var requiredExperience = rank.Value;
-                var experienceToNextLevel = requiredExperience - currentExperience;
-
-                var newLevel = GetLevelFromExperience(currentExperience);
-
-                if (newLevel.Level != user.rank)
-                {
-                    var isUpRank = newLevel.Level > user.rank;
-
-                    var newLevelName = ReplaceColorTags(newLevel.Name);
-                    PrintToChat(player, isUpRank
-                        ? Localizer["Up", newLevelName]
-                        : Localizer["Down", newLevelName]);
-
-                    user.rank = newLevel.Level;
-                    RanksApi.OnRankChanged(player, newLevel.Level, isUpRank);
-                }
-
-                return experienceToNextLevel;
-            }
-        }
-
-        return 0;
-    }
-
-    private void CreateMenu()
-    {
-        AddCommand("css_lvl", "", (player, _) =>
-        {
-            if (player == null) return;
-            
-            var title = Localizer["menu.title"];
-            var menu = new ChatMenu(title);
-            var ranksMenu = new ChatMenu(title);
-            
-            menu.AddMenuOption(Localizer["menu.allranks"], (_, _) => ChatMenus.OpenMenu(player, ranksMenu));
-            menu.AddMenuOption(Localizer["menu.reset"], (_, _) =>
-            {
-                var subMenu = new ChatMenu(Localizer["menu.reset.title"])
-                {
-                    PostSelectAction = PostSelectAction.Close
-                };
-
-                subMenu.AddMenuOption(Localizer["menu.reset.yes"], (_, _) =>
-                {
-                    var playerName = player.PlayerName;
-                    var steamId = new SteamID(player.SteamID);
-                    Task.Run(() => ResetRank(player.Slot, playerName, steamId));
-                    PrintToChat(player, Localizer["menu.reset.complete"]);
-                });
-
-                subMenu.AddMenuOption(Localizer["menu.reset.no"],
-                    (controller, option) => PrintToChat(controller, Localizer["menu.reset.canceled"]));
-                
-                MenuManager.OpenChatMenu(player, subMenu);
-            });
-
-            foreach (var (rankName, rankValue) in Config.Ranks)
-            {
-                ranksMenu.AddMenuOption($" \x0C{rankName} \x08- \x06{rankValue}\x08 experience", null!, true);
-            }
-
-            MenuManager.OpenChatMenu(player, menu);
-        });
-    }
-
-    [ConsoleCommand("css_rank")]
-    public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
-    {
-        if (controller == null) return;
-
-        var steamId = new SteamID(controller.SteamID);
-        Task.Run(() => GetUserStats(controller, steamId));
-    }
-
-    private async Task GetUserStats(CCSPlayerController controller, SteamID steamId)
-    {
-        if (!Users.TryGetValue(steamId.SteamId64, out var user)) return;
-
-        var totalTime = TimeSpan.FromSeconds(user.playtime);
-        //var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
-        var formattedTime =
-            $"{(totalTime.Days > 0 ? $"{Localizer["days", totalTime.Days]}, " : "")}" +
-            $"{(totalTime.Hours > 0 ? $"{Localizer["hours", totalTime.Hours]}, " : "")}" +
-            $"{(totalTime.Minutes > 0 ? $"{Localizer["minutes", totalTime.Minutes]}, " : "")}" +
-            $"{(totalTime.Seconds > 0 ? $"{Localizer["seconds", totalTime.Seconds]}" : "")}";
-        //var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
-        var getPlayerTop = await Database.GetPlayerRankAndTotal(steamId.SteamId2);
-
-        Server.NextFrame(() =>
-        {
-            if (!controller.IsValid) return;
-
-            var headshotPercentage =
-                (double)user.headshots / (user.kills + 1) * 100;
-            double kdr = 0;
-            if (user is { kills: > 0, deaths: > 0 })
-                kdr = (double)user.kills / (user.deaths + 1);
-
-            PrintToChat(controller,
-                "-------------------------------------------------------------------");
-            if (getPlayerTop != null)
-                PrintToChat(controller,
-                    Localizer["rank.YourPosition", getPlayerTop.PlayerRank, getPlayerTop.TotalPlayers]);
-
-            PrintToChat(controller,
-                Localizer["rank.Experience", user.value, ReplaceColorTags(GetLevelFromExperience(user.value).Name)]);
-            PrintToChat(controller,
-                Localizer["rank.KDA", user.kills, user.headshots, user.deaths, user.assists]);
-            PrintToChat(controller, Localizer["rank.Rounds", user.round_win, user.round_lose]);
-            PrintToChat(controller,
-                Localizer["rank.KDR", headshotPercentage.ToString("0.00"), kdr.ToString("0.00")]);
-            PrintToChat(controller, Localizer["rank.PlayTime", formattedTime]);
-            PrintToChat(controller,
-                "-------------------------------------------------------------------");
-        });
-    }
-
-    [ConsoleCommand("css_top")]
-    public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
-    {
-        if (controller == null) return;
-
-        Task.Run(() => ShowTopPlayers(controller));
-    }
     
-    private async Task ShowTopPlayers(CCSPlayerController controller)
-    {
-        var topPlayersSorted = await Database.GetTopPlayers();
-
-        if (topPlayersSorted == null) return;
-        
-        Server.NextFrame(() =>
-        {
-            controller.PrintToChat(Localizer["top.Title"]);
-            var rank = 1;
-            foreach (var player in topPlayersSorted)
-            {
-                if (!controller.IsValid) continue;
-    
-                controller.PrintToChat(
-                    $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
-            }
-        });
-    }
-
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
         UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
@@ -628,6 +454,179 @@ public class Ranks : BasePlugin
             if (player != null && player.IsValid)
                 UpdateUserStatsLocal(player, Localizer["planting_bomb"], exp: configEvent.PlantedBomb);
             return HookResult.Continue;
+        });
+    }
+
+    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
+        int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
+        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
+    {
+        if (!IsRanksEnabled) return;
+        if (player == null || Config.MinPlayers > PlayersCount() ||
+            Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
+                .WarmupPeriod) return;
+
+        if (!Users.TryGetValue(player.SteamID, out var user)) return;
+
+        exp = exp == -1 ? 0 : exp;
+
+        if (increase)
+        {
+            var newExp = RanksApi.OnPlayerGainedExperience(player, exp);
+            user.value += newExp ?? exp;
+        }
+        else
+        {
+            var newExp = RanksApi.OnPlayerLostExperience(player, exp);
+            user.value -= newExp ?? exp;
+        }
+
+        user.kills += kills;
+        user.deaths += death;
+        user.assists += assist;
+        user.round_lose += roundlose;
+        user.round_win += roundwin;
+        user.headshots += headshots;
+        user.hits += hits;
+        user.shoots += shoots;
+
+        if (user.value <= 0) user.value = Config.InitialExperiencePoints;
+
+        var nextXp = GetExperienceToNextLevel(player);
+        if (exp != 0 && Config.ShowExperienceMessages)
+        {
+            Server.NextFrame(() => PrintToChat(player,
+                $"{(increase ? "\x0C+" : "\x02-")}{exp} XP \x08{msg} {(nextXp == 0 ? string.Empty : $"{Localizer["next_level", nextXp]}")}"));
+        }
+    }
+
+    public (string Name, int Level) GetLevelFromExperience(long experience)
+    {
+        foreach (var rank in Config.Ranks.OrderByDescending(pair => pair.Value))
+        {
+            if (experience >= rank.Value)
+                return (rank.Key, Config.Ranks.Count(pair => pair.Value <= rank.Value));
+        }
+
+        return (string.Empty, 0);
+    }
+
+    private long GetExperienceToNextLevel(CCSPlayerController player)
+    {
+        if (!Users.TryGetValue(player.SteamID, out var user)) return 0;
+
+        var currentExperience = user.value;
+
+        foreach (var rank in Config.Ranks.OrderBy(pair => pair.Value))
+        {
+            if (currentExperience < rank.Value)
+            {
+                var requiredExperience = rank.Value;
+                var experienceToNextLevel = requiredExperience - currentExperience;
+
+                var newLevel = GetLevelFromExperience(currentExperience);
+
+                if (newLevel.Level != user.rank)
+                {
+                    var isUpRank = newLevel.Level > user.rank;
+
+                    var newLevelName = ReplaceColorTags(newLevel.Name);
+                    PrintToChat(player, isUpRank
+                        ? Localizer["Up", newLevelName]
+                        : Localizer["Down", newLevelName]);
+
+                    user.rank = newLevel.Level;
+                    RanksApi.OnRankChanged(player, newLevel.Level, isUpRank);
+                }
+
+                return experienceToNextLevel;
+            }
+        }
+
+        return 0;
+    }
+
+    private void CreateMenu()
+    {
+        AddCommand("css_lvl", "", (player, _) =>
+        {
+            if (player == null) return;
+            
+            var title = Localizer["menu.title"];
+            var menu = new ChatMenu(title);
+            var ranksMenu = new ChatMenu(title);
+            
+            menu.AddMenuOption(Localizer["menu.allranks"], (_, _) => ChatMenus.OpenMenu(player, ranksMenu));
+            menu.AddMenuOption(Localizer["menu.reset"], (_, _) =>
+            {
+                var subMenu = new ChatMenu(Localizer["menu.reset.title"])
+                {
+                    PostSelectAction = PostSelectAction.Close
+                };
+
+                subMenu.AddMenuOption(Localizer["menu.reset.yes"], (_, _) =>
+                {
+                    var playerName = player.PlayerName;
+                    var steamId = new SteamID(player.SteamID);
+                    Task.Run(() => ResetRank(player.Slot, playerName, steamId));
+                    PrintToChat(player, Localizer["menu.reset.complete"]);
+                });
+
+                subMenu.AddMenuOption(Localizer["menu.reset.no"],
+                    (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
+                
+                MenuManager.OpenChatMenu(player, subMenu);
+            });
+
+            foreach (var (rankName, rankValue) in Config.Ranks)
+            {
+                ranksMenu.AddMenuOption($" \x0C{rankName} \x08- \x06{rankValue}\x08 experience", null!, true);
+            }
+
+            MenuManager.OpenChatMenu(player, menu);
+        });
+    }
+
+    private async Task GetUserStats(CCSPlayerController controller, SteamID steamId)
+    {
+        if (!Users.TryGetValue(steamId.SteamId64, out var user)) return;
+
+        var totalTime = TimeSpan.FromSeconds(user.playtime);
+        //var formattedTime = totalPlayTime.ToString(@"hh\:mm\:ss");
+        var formattedTime =
+            $"{(totalTime.Days > 0 ? $"{Localizer["days", totalTime.Days]}, " : "")}" +
+            $"{(totalTime.Hours > 0 ? $"{Localizer["hours", totalTime.Hours]}, " : "")}" +
+            $"{(totalTime.Minutes > 0 ? $"{Localizer["minutes", totalTime.Minutes]}, " : "")}" +
+            $"{(totalTime.Seconds > 0 ? $"{Localizer["seconds", totalTime.Seconds]}" : "")}";
+        //var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
+        var getPlayerTop = await Database.GetPlayerRankAndTotal(steamId.SteamId2);
+
+        Server.NextFrame(() =>
+        {
+            if (!controller.IsValid) return;
+
+            var headshotPercentage =
+                (double)user.headshots / (user.kills + 1) * 100;
+            double kdr = 0;
+            if (user is { kills: > 0, deaths: > 0 })
+                kdr = (double)user.kills / (user.deaths + 1);
+
+            PrintToChat(controller,
+                "-------------------------------------------------------------------");
+            if (getPlayerTop != null)
+                PrintToChat(controller,
+                    Localizer["rank.YourPosition", getPlayerTop.PlayerRank, getPlayerTop.TotalPlayers]);
+
+            PrintToChat(controller,
+                Localizer["rank.Experience", user.value, ReplaceColorTags(GetLevelFromExperience(user.value).Name)]);
+            PrintToChat(controller,
+                Localizer["rank.KDA", user.kills, user.headshots, user.deaths, user.assists]);
+            PrintToChat(controller, Localizer["rank.Rounds", user.round_win, user.round_lose]);
+            PrintToChat(controller,
+                Localizer["rank.KDR", headshotPercentage.ToString("0.00"), kdr.ToString("0.00")]);
+            PrintToChat(controller, Localizer["rank.PlayTime", formattedTime]);
+            PrintToChat(controller,
+                "-------------------------------------------------------------------");
         });
     }
 
