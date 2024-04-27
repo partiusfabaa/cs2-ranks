@@ -19,7 +19,7 @@ using RanksApi;
 
 namespace Ranks;
 
-[MinimumApiVersion(186)]
+[MinimumApiVersion(210)]
 public class Ranks : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
