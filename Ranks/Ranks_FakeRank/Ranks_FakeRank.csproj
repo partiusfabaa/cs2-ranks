@@ -1,13 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\RanksApi\RanksApi.csproj" />
+        <PackageReference Include="CounterStrikeSharp.API" Version="1.0.217" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\RanksApi\RanksApi.csproj" />
     </ItemGroup>
 
 </Project>

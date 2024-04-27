@@ -553,13 +553,13 @@ public class Ranks : BasePlugin
             if (player == null) return;
             
             var title = Localizer["menu.title"];
-            var menu = new ChatMenu(title);
-            var ranksMenu = new ChatMenu(title);
+            var menu = new CenterHtmlMenu(title, this);
+            var ranksMenu = new CenterHtmlMenu(title, this);
             
-            menu.AddMenuOption(Localizer["menu.allranks"], (_, _) => ChatMenus.OpenMenu(player, ranksMenu));
+            menu.AddMenuOption(Localizer["menu.allranks"], (_, _) => ranksMenu.Open(player));
             menu.AddMenuOption(Localizer["menu.reset"], (_, _) =>
             {
-                var subMenu = new ChatMenu(Localizer["menu.reset.title"])
+                var subMenu = new CenterHtmlMenu(Localizer["menu.reset.title"], this)
                 {
                     PostSelectAction = PostSelectAction.Close
                 };
@@ -575,7 +575,7 @@ public class Ranks : BasePlugin
                 subMenu.AddMenuOption(Localizer["menu.reset.no"],
                     (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
                 
-                MenuManager.OpenChatMenu(player, subMenu);
+                subMenu.Open(player);
             });
 
             foreach (var (rankName, rankValue) in Config.Ranks)
@@ -583,7 +583,7 @@ public class Ranks : BasePlugin
                 ranksMenu.AddMenuOption($" \x0C{rankName} \x08- \x06{rankValue}\x08 experience", null!, true);
             }
 
-            MenuManager.OpenChatMenu(player, menu);
+            menu.Open(player);
         });
     }
 

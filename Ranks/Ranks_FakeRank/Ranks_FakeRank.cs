@@ -30,6 +30,7 @@ public class RanksFakeRank : BasePlugin
                 sbyte rankType;
                 int rankValue;
 
+                player.CompetitiveWins = 111;
                 if (_config.Type is 0)
                 {
                     rankType = 11;
