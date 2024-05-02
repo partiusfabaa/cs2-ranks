@@ -30,8 +30,8 @@ public class Ranks : BasePlugin
     public string DbConnectionString = string.Empty;
 
     public Config Config = null!;
-    public Database Database;
-    public RanksApi RanksApi;
+    public Database Database = null!;
+    public RanksApi RanksApi = null!;
 
     public readonly ConcurrentDictionary<ulong, User> Users = new();
     private readonly DateTime[] _loginTime = new DateTime[64];
@@ -42,7 +42,7 @@ public class Ranks : BasePlugin
     {
         RanksApi = new RanksApi(this, ModuleDirectory);
         Capabilities.RegisterPluginCapability(IRanksApi.Capability, () => RanksApi);
-        
+
         Config = LoadConfig();
         DbConnectionString = BuildConnectionString();
         Database = new Database(this, DbConnectionString);
@@ -53,10 +53,10 @@ public class Ranks : BasePlugin
         {
             var player = Utilities.GetPlayerFromSlot(slot);
 
-            if (player.IsBot) return;
+            if (player is null || player.IsBot) return;
             var playerName = player.PlayerName;
 
-            Task.Run(() => OnClientAuthorizedAsync(player, playerName, id));
+            Task.Run(() => OnClientAuthorizedAsync(playerName, id));
             _loginTime[player.Slot] = DateTime.UtcNow;
         });
 
@@ -84,6 +84,8 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>((@event, _) =>
         {
             var player = @event.Userid;
+
+            if (player is null || !player.IsValid) return HookResult.Continue;
 
             if (Users.TryGetValue(player.SteamID, out var user))
             {
@@ -122,7 +124,7 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
-        
+
         AddCommand("css_lr_enabled", "", (player, info) =>
         {
             if (player != null) return;
@@ -171,7 +173,7 @@ public class Ranks : BasePlugin
         _loginTime[slot] = DateTime.UtcNow;
     }
 
-    private async Task OnClientAuthorizedAsync(CCSPlayerController player, string playerName, SteamID steamId)
+    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
     {
         var userExists = await Database.UserExists(steamId.SteamId2);
 
@@ -204,7 +206,7 @@ public class Ranks : BasePlugin
             lastconnect = user.lastconnect
         };
     }
-    
+
     [ConsoleCommand("css_rank")]
     public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
     {
@@ -230,12 +232,12 @@ public class Ranks : BasePlugin
         var exp = 0;
         if (info.ArgCount >= 3)
             exp = int.TryParse(info.GetArg(2), out var value) ? value : 0;
-        
+
         RanksApi.GivePlayerExperience(target, exp);
         ReplyToCommand(player, Localizer["command.give_exp", exp, target.PlayerName]);
         ReplyToCommand(target, Localizer["command.target.give_exp", player?.PlayerName ?? "Console", exp]);
     }
-    
+
     [RequiresPermissions("@css/root")]
     [CommandHelper(2, "<username or #userid> [exp (def. 0)]")]
     [ConsoleCommand("css_lr_takeexp")]
@@ -252,7 +254,7 @@ public class Ranks : BasePlugin
         var exp = 0;
         if (info.ArgCount >= 3)
             exp = int.TryParse(info.GetArg(2), out var value) ? value : 0;
-        
+
         RanksApi.TakePlayerExperience(target, exp);
         ReplyToCommand(player, Localizer["command.take_exp", exp, target.PlayerName]);
         ReplyToCommand(target, Localizer["command.target.take_exp", player?.PlayerName ?? "Console", exp]);
@@ -266,7 +268,7 @@ public class Ranks : BasePlugin
         Config = LoadConfig();
         Logger.LogInformation("Configuration successfully rebooted");
     }
-    
+
     [ConsoleCommand("css_top")]
     public void OnCmdTop(CCSPlayerController? controller, CommandInfo command)
     {
@@ -274,13 +276,13 @@ public class Ranks : BasePlugin
 
         Task.Run(() => ShowTopPlayers(controller));
     }
-    
+
     private async Task ShowTopPlayers(CCSPlayerController controller)
     {
         var topPlayersSorted = await Database.GetTopPlayers();
 
         if (topPlayersSorted == null) return;
-        
+
         Server.NextFrame(() =>
         {
             controller.PrintToChat(Localizer["top.Title"]);
@@ -288,7 +290,7 @@ public class Ranks : BasePlugin
             foreach (var player in topPlayersSorted)
             {
                 if (!controller.IsValid) continue;
-    
+
                 controller.PrintToChat(
                     $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
             }
@@ -307,14 +309,14 @@ public class Ranks : BasePlugin
         var configEvent = Config.Events.EventPlayerDeath;
         var additionally = Config.Events.Additionally;
 
-        if (attacker.IsValid)
+        if (attacker is not null && attacker.IsValid)
         {
-            if (attacker.IsBot || victim.IsBot)
+            if (attacker.IsBot || victim is not null && victim.IsBot)
                 return HookResult.Continue;
 
             if (attacker != victim)
             {
-                if (attacker.TeamNum == victim.TeamNum && !Config.TeamKillAllowed)
+                if (victim is not null && attacker.TeamNum == victim.TeamNum && !Config.TeamKillAllowed)
                     UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
                         exp: configEvent.KillingAnAlly, increase: false);
                 else
@@ -343,7 +345,7 @@ public class Ranks : BasePlugin
             }
         }
 
-        if (victim.IsValid)
+        if (victim is not null && victim.IsValid)
         {
             if (victim.IsBot)
                 return HookResult.Continue;
@@ -354,16 +356,15 @@ public class Ranks : BasePlugin
                 UpdateUserStatsLocal(victim, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
         }
 
-        if (assister.IsValid)
+        if (assister is not null && assister.IsValid)
         {
             if (assister.IsBot) return HookResult.Continue;
-
             UpdateUserStatsLocal(assister, Localizer["AssistingInAKill"], exp: configEvent.Assists, assist: 1);
         }
 
         return HookResult.Continue;
     }
-    
+
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
         UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
@@ -551,11 +552,11 @@ public class Ranks : BasePlugin
         AddCommand("css_lvl", "", (player, _) =>
         {
             if (player == null) return;
-            
+
             var title = Localizer["menu.title"];
             var menu = new CenterHtmlMenu(title, this);
             var ranksMenu = new CenterHtmlMenu(title, this);
-            
+
             menu.AddMenuOption(Localizer["menu.allranks"], (_, _) => ranksMenu.Open(player));
             menu.AddMenuOption(Localizer["menu.reset"], (_, _) =>
             {
@@ -574,7 +575,7 @@ public class Ranks : BasePlugin
 
                 subMenu.AddMenuOption(Localizer["menu.reset.no"],
                     (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
-                
+
                 subMenu.Open(player);
             });
 
@@ -727,14 +728,14 @@ public class Ranks : BasePlugin
 
         player.PrintToChat($"{ReplaceColorTags(Config.Prefix)} {message}");
     }
-    
+
     private void ReplyToCommand(CCSPlayerController? player, string message)
     {
         if (player == null)
             Logger.LogInformation(message);
         else
         {
-            if(!player.IsValid) return;
+            if (!player.IsValid) return;
             PrintToChat(player, message);
         }
     }

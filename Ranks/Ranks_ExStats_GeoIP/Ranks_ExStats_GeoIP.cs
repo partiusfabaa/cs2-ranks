@@ -26,7 +26,7 @@ public class RanksExStatsGeoIp : BasePlugin
         RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
         {
             var player = Utilities.GetPlayerFromSlot(slot);
-            if (player.IsBot) return;
+            if (player is null || player.IsBot) return;
 
             var ip = player.IpAddress;
             var steamId = ReplaceFirstCharacter(id.SteamId2);
@@ -43,11 +43,11 @@ public class RanksExStatsGeoIp : BasePlugin
 
     private async Task CreateTable()
     {
-        await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+        await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
         await connection.OpenAsync();
 
         var query = $"""
-                     CREATE TABLE IF NOT EXISTS `{_api.DatabaseTableName}_geoip` (
+                     CREATE TABLE IF NOT EXISTS `{_api?.DatabaseTableName}_geoip` (
                          `steam` varchar(32) NOT NULL,
                          `clientip` varchar(16) NOT NULL,
                          `country` varchar(48) NOT NULL,
@@ -74,11 +74,11 @@ public class RanksExStatsGeoIp : BasePlugin
             var regionName = response.MostSpecificSubdivision.Name ?? string.Empty;
             var countryCode = response.Country.IsoCode ?? string.Empty;
 
-            await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+            await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
             await connection.OpenAsync();
 
             var query = $"""
-                             INSERT INTO `{_api.DatabaseTableName}_geoip` (steam, clientip, country, region, city, country_code)
+                             INSERT INTO `{_api?.DatabaseTableName}_geoip` (steam, clientip, country, region, city, country_code)
                              VALUES (@Steam, @Ip, @Country, @Region, @City, @Code)
                              ON DUPLICATE KEY UPDATE
                                  clientip = @Ip,

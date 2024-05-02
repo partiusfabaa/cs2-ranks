@@ -37,7 +37,8 @@ public class RanksExStatsHits : BasePlugin
     private void OnDisconnect(int slot)
     {
         var player = Utilities.GetPlayerFromSlot(slot);
-        if (player.IsBot) return;
+        if (player is null || player.IsBot) return;
+
         var steamId =
             new SteamID(player.AuthorizedSteamID == null ? player.SteamID : player.AuthorizedSteamID.SteamId64);
 
@@ -60,11 +61,11 @@ public class RanksExStatsHits : BasePlugin
     {
         try
         {
-            await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+            await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
             await connection.OpenAsync();
 
             var query = $"""
-                         CREATE TABLE IF NOT EXISTS `{_api.DatabaseTableName}_hits`
+                         CREATE TABLE IF NOT EXISTS `{_api?.DatabaseTableName}_hits`
                          (`SteamID` varchar(32) NOT NULL PRIMARY KEY DEFAULT '',
                          	`DmgHealth` int NOT NULL DEFAULT 0,
                          	`DmgArmor` int NOT NULL DEFAULT 0,
@@ -90,10 +91,10 @@ public class RanksExStatsHits : BasePlugin
     {
         try
         {
-            await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+            await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
             await connection.OpenAsync();
 
-            var query = $"INSERT INTO `{_api.DatabaseTableName}_hits` (`SteamID`) VALUES (@SteamId);";
+            var query = $"INSERT INTO `{_api?.DatabaseTableName}_hits` (`SteamID`) VALUES (@SteamId);";
 
             await connection.ExecuteAsync(query, new { SteamId = steamId });
         }
@@ -107,11 +108,11 @@ public class RanksExStatsHits : BasePlugin
     {
         try
         {
-            await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+            await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
             await connection.OpenAsync();
 
             var updateQuery = $@"
-                UPDATE `{_api.DatabaseTableName}_hits`
+                UPDATE `{_api?.DatabaseTableName}_hits`
                 SET DmgHealth = @DmgHealth,
                     DmgArmor = @DmgArmor,
                     Head = @Head,
@@ -151,16 +152,16 @@ public class RanksExStatsHits : BasePlugin
     {
         try
         {
-            await using var connection = new MySqlConnection(_api.DatabaseConnectionString);
+            await using var connection = new MySqlConnection(_api?.DatabaseConnectionString);
             await connection.OpenAsync();
 
             var steamId = ReplaceFirstCharacter(id.SteamId2);
 
-            var query = $"SELECT * FROM `{_api.DatabaseTableName}_hits` WHERE SteamId = @SteamId;";
+            var query = $"SELECT * FROM `{_api?.DatabaseTableName}_hits` WHERE SteamId = @SteamId;";
             var hitsData = await connection.QueryFirstOrDefaultAsync(query, new { SteamId = steamId });
 
             Hits.Add(slot, Enum.GetValues(typeof(HitData)).Cast<HitData>().ToDictionary(hit => hit, hit => 0));
-            
+
             if (hitsData == null)
             {
                 await AddPlayerToDatabase(steamId);

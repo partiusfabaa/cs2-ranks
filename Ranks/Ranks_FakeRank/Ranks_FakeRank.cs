@@ -14,6 +14,7 @@ public class RanksFakeRank : BasePlugin
 
     private Config _config;
     private IRanksApi? _api;
+    private int _maxRank;
 
     public override void OnAllPluginsLoaded(bool hotReload)
     {
@@ -21,7 +22,7 @@ public class RanksFakeRank : BasePlugin
         if (_api == null) return;
 
         _config = _api.LoadConfig<Config>("ranks_fakerank");
-
+        _maxRank = _config.FakeRank.Max(f => f.Key);
         RegisterListener<Listeners.OnTick>(() =>
         {
             foreach (var player in Utilities.GetPlayers()
@@ -40,9 +41,8 @@ public class RanksFakeRank : BasePlugin
                 {
                     rankType = 12;
                     var rank = _api.GetPlayerRank(player);
-                    var maxFakeKey = _config.FakeRank.Max(f => f.Key);
 
-                    rankValue = _config.FakeRank[rank > maxFakeKey ? maxFakeKey : rank <= 0 ? 1 : rank];
+                    rankValue = _config.FakeRank[rank > _maxRank ? _maxRank : rank <= 0 ? 1 : rank];
                 }
 
                 player.CompetitiveRankType = rankType;
@@ -55,6 +55,7 @@ public class RanksFakeRank : BasePlugin
             if (player != null) return;
 
             _config = _api.LoadConfig<Config>("ranks_fakerank");
+            _maxRank = _config.FakeRank.Max(f => f.Key);
         });
     }
 }
