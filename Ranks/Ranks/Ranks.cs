@@ -575,7 +575,7 @@ public class Ranks : BasePlugin
                     (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
 
                 subMenu.Open(player);
-            }, Config.StatisticsResetEnabled);
+            }, !Config.StatisticsResetEnabled);
 
             foreach (var (rankName, rankValue) in Config.Ranks)
             {
