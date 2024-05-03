@@ -37,6 +37,7 @@
   "seconds": "{green}{0}{default} Sekunde(s)",
   "menu.title": "[ {blue}Rangi{default} ]",
   "menu.allranks": "Visi rangu",
+  "menu.allranks.show": "{blue}{0} {default}- {red}{1} pieredze",
   "menu.reset": "Atiestatīt rangu",
   "menu.reset.title": "Vai esat pārliecināts, ka vēlaties atiestatīt savu rangu?",
   "menu.reset.yes": "Jā!",

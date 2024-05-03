@@ -14,7 +14,7 @@ public class RanksApi : IRanksApi
     public string ModulesConfigDirectory => Path.Combine(CoreConfigDirectory, "Modules/");
     public string DatabaseTableName => _ranks.Config.TableName;
     public string DatabaseConnectionString => _ranks.DbConnectionString;
-    public bool IsRanksEnabled => _ranks.IsRanksEnabled;
+    public bool IsRanksEnabled => _ranks.RanksEnable.Value;
 
     private readonly Ranks _ranks;
 

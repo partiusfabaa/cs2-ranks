@@ -9,7 +9,9 @@ using CounterStrikeSharp.API.Core.Capabilities;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -25,7 +27,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "[Ranks] Core";
-    public override string ModuleVersion => "v2.0.3";
+    public override string ModuleVersion => "v2.0.4";
 
     public string DbConnectionString = string.Empty;
 
@@ -35,8 +37,6 @@ public class Ranks : BasePlugin
 
     public readonly ConcurrentDictionary<ulong, User> Users = new();
     private readonly DateTime[] _loginTime = new DateTime[64];
-
-    public bool IsRanksEnabled = true;
 
     public override void Load(bool hotReload)
     {
@@ -124,13 +124,9 @@ public class Ranks : BasePlugin
         RoundEvent();
         BombEvents();
         CreateMenu();
-
-        AddCommand("css_lr_enabled", "", (player, info) =>
-        {
-            if (player != null) return;
-            IsRanksEnabled = int.Parse(info.GetArg(1)) == 1;
-        });
     }
+
+    public readonly FakeConVar<bool> RanksEnable = new("css_lr_enable", "", true);
 
     private void OnMapStart(string mapName)
     {
@@ -378,7 +374,7 @@ public class Ranks : BasePlugin
         RegisterEventHandler<EventRoundStart>((_, _) =>
         {
             var playerCount = PlayersCount();
-            if (Config.MinPlayers > playerCount)
+            if (Config.MinPlayers > playerCount && RanksEnable.Value)
             {
                 PrintToChatAll(Localizer["NotEnoughPlayers", playerCount, Config.MinPlayers]);
             }
@@ -388,26 +384,21 @@ public class Ranks : BasePlugin
 
         RegisterEventHandler<EventRoundEnd>((@event, _) =>
         {
+            if (@event.Reason is (int)RoundEndReason.RoundDraw) return HookResult.Continue;
             var winner = @event.Winner;
 
             var configEvent = Config.Events.EventRoundEnd;
 
             if (Config.MinPlayers > PlayersCount()) return HookResult.Continue;
 
-            for (var i = 1; i < Server.MaxPlayers; i++)
+            foreach (var player in Utilities.GetPlayers().Where(u => u is { IsValid: true, IsBot: false }))
             {
-                var player = Utilities.GetPlayerFromIndex(i);
-                if (player is { IsValid: true, IsBot: false })
+                if (player.Team is not CsTeam.Spectator)
                 {
-                    if (player.TeamNum != (int)CsTeam.Spectator)
-                    {
-                        if (player.TeamNum != winner)
-                            UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, roundlose: 1,
-                                increase: false);
-                        else
-                            UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner,
-                                roundwin: 1);
-                    }
+                    if (player.TeamNum != winner)
+                        UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, roundlose: 1, increase: false);
+                    else
+                        UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner, roundwin: 1);
                 }
             }
 
@@ -462,10 +453,11 @@ public class Ranks : BasePlugin
         int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
         int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
     {
-        if (!IsRanksEnabled) return;
-        if (player == null || Config.MinPlayers > PlayersCount() ||
-            Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
-                .WarmupPeriod) return;
+        if (!RanksEnable.Value) return;
+
+        var isWarmup = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
+            .WarmupPeriod;
+        if (player == null || Config.MinPlayers > PlayersCount() || isWarmup) return;
 
         if (!Users.TryGetValue(player.SteamID, out var user)) return;
 
@@ -506,7 +498,9 @@ public class Ranks : BasePlugin
         foreach (var rank in Config.Ranks.OrderByDescending(pair => pair.Value))
         {
             if (experience >= rank.Value)
+            {
                 return (rank.Key, Config.Ranks.Count(pair => pair.Value <= rank.Value));
+            }
         }
 
         return (string.Empty, 0);
@@ -517,7 +511,6 @@ public class Ranks : BasePlugin
         if (!Users.TryGetValue(player.SteamID, out var user)) return 0;
 
         var currentExperience = user.value;
-
         foreach (var rank in Config.Ranks.OrderBy(pair => pair.Value))
         {
             if (currentExperience < rank.Value)
@@ -541,6 +534,11 @@ public class Ranks : BasePlugin
                 }
 
                 return experienceToNextLevel;
+            }
+            else
+            {
+                var newLevel = GetLevelFromExperience(currentExperience);
+                user.rank = newLevel.Level;
             }
         }
 
@@ -577,11 +575,11 @@ public class Ranks : BasePlugin
                     (controller, option) => PrintToChat(controller, Localizer["reset.reset.canceled"]));
 
                 subMenu.Open(player);
-            });
+            }, Config.StatisticsResetEnabled);
 
             foreach (var (rankName, rankValue) in Config.Ranks)
             {
-                ranksMenu.AddMenuOption($" \x0C{rankName} \x08- \x06{rankValue}\x08 experience", null!, true);
+                ranksMenu.AddMenuOption(Localizer["menu.allranks.show", rankName, rankValue], null!, true);
             }
 
             menu.Open(player);
@@ -670,6 +668,7 @@ public class Ranks : BasePlugin
             ShowExperienceMessages = true,
             MinPlayers = 4,
             InitialExperiencePoints = 500,
+            StatisticsResetEnabled = true,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
@@ -784,6 +783,7 @@ public class Config
     public bool ShowExperienceMessages { get; init; }
     public int MinPlayers { get; init; }
     public int InitialExperiencePoints { get; init; }
+    public bool StatisticsResetEnabled { get; init; }
     public EventsExpSettings Events { get; init; } = null!;
     public Dictionary<string, int> Weapon { get; init; } = null!;
     public Dictionary<string, int> Ranks { get; init; } = null!;

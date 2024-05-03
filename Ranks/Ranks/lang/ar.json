@@ -37,6 +37,7 @@
     "seconds": "{green}{0}{default} ثواني",
     "menu.title": "[ {blue}الرتب{default} ]",
     "menu.allranks": "جميع الرتب",
+	"menu.allranks.show": "{blue}{0} {default}- {red}{1} تجربة",
     "menu.reset": "إعادة تعيين الرتبة",
     "menu.reset.title": "هل أنت متأكد أنك تريد إعادة تعيين رتبتك؟",
     "menu.reset.yes": "نعم!",
@@ -47,5 +48,5 @@
     "command.target.give_exp": "المسؤول {0} قد منحك {red}{1} تجربة.",
     "command.take_exp": "لقد قمت بأخذ {red}{0} تجربة بنجاح من اللاعب {1}",
     "command.target.take_exp": "المسؤول {0} قد أخذ {red}{1} تجربة منك."
-  }
+}
   

@@ -37,6 +37,7 @@
   "seconds": "{green}{0}{default} Seconds",
   "menu.title": "[ {blue}Ranks{default} ]",
   "menu.allranks": "All ranks",
+  "menu.allranks.show": "{blue}{0} {default}- {red}{1} experience",
   "menu.reset": "Reset rank",
   "menu.reset.title": "Are you sure you want to reset your rank?",
   "menu.reset.yes": "Yes!",

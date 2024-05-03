@@ -37,6 +37,7 @@
   "seconds": "{green}{0}{default} Секунд",
   "menu.title": "[ {blue}Ранги{default} ]",
   "menu.allranks": "Усі ранги",
+  "menu.allranks.show": "{blue}{0} {default}- {red}{1} досвіду",
   "menu.reset": "Скинути ранг",
   "menu.reset.title": "Ви впевнені, що хочете скинути свій ранг?",
   "menu.reset.yes": "Так!",

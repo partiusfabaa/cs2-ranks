@@ -34,5 +34,18 @@
     "days": "{green}{0}{default} 天",
     "hours": "{green}{0}{default} 小时",
     "minutes": "{green}{0}{default} 分钟",
-    "seconds": "{green}{0}{default} 秒"
-  }
+    "seconds": "{green}{0}{default} 秒",
+	"menu.title": "[ {blue}等级{default} ]",
+	"menu.allranks": "所有等级",
+	"menu.allranks.show": "{blue}{0} {default}- {red}{1} 经验",
+	"menu.reset": "重置等级",
+	"menu.reset.title": "您确定要重置您的等级吗？",
+	"menu.reset.yes": "是的!",
+	"menu.reset.complete": "您已成功重置您的等级！",
+	"menu.reset.no": "不!",
+	"menu.reset.canceled": "等级重置已取消！",
+	"command.give_exp": "您已成功向玩家 {1} 赠送了 {red}{0} 经验",
+	"command.target.give_exp": "{0} 管理员向您赠送了 {red}{1} 经验",
+	"command.take_exp": "您已成功从玩家 {1} 处收回了 {red}{0} 经验",
+	"command.target.take_exp": "{0} 管理员从您处收回了 {red}{1} 经验"
+ }
