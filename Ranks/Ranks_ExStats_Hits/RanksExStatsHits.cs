@@ -50,9 +50,13 @@ public class RanksExStatsHits : BasePlugin
         var player = @event.Attacker;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        Hits[player.Slot][HitData.HdDmgHealth] += @event.DmgHealth;
-        Hits[player.Slot][HitData.HdDmgArmor] += @event.DmgArmor;
-        Hits[player.Slot][(HitData)@event.Hitgroup]++;
+        var hits = Hits[player.Slot];
+
+        hits[HitData.HdDmgHealth] += @event.DmgHealth;
+        hits[HitData.HdDmgArmor] += @event.DmgArmor;
+        
+        hits[HitData.HdHitAll]++;
+        hits[(HitData)@event.Hitgroup]++;
 
         return HookResult.Continue;
     }
@@ -125,18 +129,19 @@ public class RanksExStatsHits : BasePlugin
                     Neak = @Neak
                 WHERE SteamID = @SteamId;";
 
+            var hits = Hits[slot];
             await connection.ExecuteAsync(updateQuery, new
             {
-                DmgHealth = Hits[slot][HitData.HdDmgHealth],
-                DmgArmor = Hits[slot][HitData.HdDmgArmor],
-                Head = Hits[slot][HitData.HdHitHead],
-                Chest = Hits[slot][HitData.HdHitChest],
-                Belly = Hits[slot][HitData.HdHitBelly],
-                LeftArm = Hits[slot][HitData.HdHitLeftArm],
-                RightArm = Hits[slot][HitData.HdHitRightArm],
-                LeftLeg = Hits[slot][HitData.HdHitLeftLeg],
-                RightLeg = Hits[slot][HitData.HdHitRightLeg],
-                Neak = Hits[slot][HitData.HdHitNeak],
+                DmgHealth = hits[HitData.HdDmgHealth],
+                DmgArmor = hits[HitData.HdDmgArmor],
+                Head = hits[HitData.HdHitHead],
+                Chest = hits[HitData.HdHitChest],
+                Belly = hits[HitData.HdHitBelly],
+                LeftArm = hits[HitData.HdHitLeftArm],
+                RightArm = hits[HitData.HdHitRightArm],
+                LeftLeg = hits[HitData.HdHitLeftLeg],
+                RightLeg = hits[HitData.HdHitRightLeg],
+                Neak = hits[HitData.HdHitNeak],
                 SteamId = ReplaceFirstCharacter(steamId.SteamId2)
             });
 
@@ -168,6 +173,7 @@ public class RanksExStatsHits : BasePlugin
                 return;
             }
 
+            var hits = Hits[slot];
             Hits[slot] = new Dictionary<HitData, int>
             {
                 [HitData.HdDmgHealth] = hitsData.DmgHealth,
@@ -179,8 +185,14 @@ public class RanksExStatsHits : BasePlugin
                 [HitData.HdHitRightArm] = hitsData.RightArm,
                 [HitData.HdHitLeftLeg] = hitsData.LeftLeg,
                 [HitData.HdHitRightLeg] = hitsData.RightLeg,
-                [HitData.HdHitNeak] = hitsData.Neak
+                [HitData.HdHitNeak] = hitsData.Neak,
+                [HitData.HdHitAll] = 0
             };
+
+            foreach (var (key, value) in hits)
+            {
+                hits[HitData.HdHitAll] += value;
+            }
         }
         catch (Exception e)
         {
