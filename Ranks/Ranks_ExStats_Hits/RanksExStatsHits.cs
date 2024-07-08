@@ -1,6 +1,7 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Menu;
 using Dapper;
 using MySqlConnector;
 using RanksApi;
@@ -22,13 +23,83 @@ public class RanksExStatsHits : BasePlugin
         if (_api == null) return;
 
         Task.Run(CreateTable);
-
-        RegisterEventHandler<EventPlayerHurt>(EventPlayerHurt);
-
+        
         RegisterListener<Listeners.OnClientAuthorized>(OnAuthorized);
         RegisterListener<Listeners.OnClientDisconnect>(OnDisconnect);
+ 
+        RegisterEventHandler<EventPlayerHurt>(EventPlayerHurt);
+        
+        _api.CreatedMenu += OnCreatedMenu;
     }
 
+    private void OnCreatedMenu(CCSPlayerController player, IMenu menu)
+    {
+        menu.AddMenuOption(Localizer["hits_statistics"], OpenSubMenu);
+    }
+
+    private void OpenSubMenu(CCSPlayerController player, ChatMenuOption option)
+    {
+        var menu = new ChatMenu(Localizer["hit_statistics"]);
+        var subMenu = new ChatMenu("");
+        subMenu.AddMenuOption("Back", OpenSubMenu);
+
+        var hits = Hits[player.Slot];
+        var allHits = hits[HitData.HdHitAll];
+        
+        if (allHits is not 0)
+        {
+            var hitTitle = Localizer["hits"];
+
+            menu.AddMenuOption(hitTitle, (controller, _) =>
+            {
+                subMenu.Title = hitTitle;
+
+                var head = hits[HitData.HdHitHead];
+                var chest = hits[HitData.HdHitChest];
+                var belly = hits[HitData.HdHitBelly];
+                var leftArm = hits[HitData.HdHitLeftArm];
+                var rightArm = hits[HitData.HdHitRightArm];
+                var leftLeg = hits[HitData.HdHitLeftLeg];
+                var rightLeg = hits[HitData.HdHitRightLeg];
+                
+                subMenu.AddMenuOption(Localizer["hits_player",
+                    allHits, 
+                    head,
+                    chest,
+                    belly,
+                    leftArm,
+                    rightArm,
+                    leftLeg,
+                    rightLeg].Value.Replace('\n', '\u2029'), null!, true);
+                
+                subMenu.Open(controller);
+            });
+
+            var damageTitle = Localizer["damage"];
+            menu.AddMenuOption(damageTitle, (controller, _) =>
+            {
+                subMenu.Title = damageTitle;
+
+                var health = hits[HitData.HdDmgHealth];
+                var armor = hits[HitData.HdDmgArmor];
+
+                allHits = health + armor;
+            
+                subMenu.AddMenuOption(Localizer["dmg_player",
+                    health,
+                    armor].Value.Replace('\n', '\u2029'), null!, true);
+
+                subMenu.Open(controller);
+            });
+        }
+        else
+        {
+            menu.AddMenuOption($"No data", null!, true);
+        }
+
+        menu.Open(player);
+    }
+    
     private void OnAuthorized(int slot, SteamID id)
     {
         Task.Run(() => LoadHitsFromDatabase(slot, id));
@@ -54,7 +125,7 @@ public class RanksExStatsHits : BasePlugin
 
         hits[HitData.HdDmgHealth] += @event.DmgHealth;
         hits[HitData.HdDmgArmor] += @event.DmgArmor;
-        
+
         hits[HitData.HdHitAll]++;
         hits[(HitData)@event.Hitgroup]++;
 
@@ -173,7 +244,6 @@ public class RanksExStatsHits : BasePlugin
                 return;
             }
 
-            var hits = Hits[slot];
             Hits[slot] = new Dictionary<HitData, int>
             {
                 [HitData.HdDmgHealth] = hitsData.DmgHealth,
@@ -189,9 +259,9 @@ public class RanksExStatsHits : BasePlugin
                 [HitData.HdHitAll] = 0
             };
 
-            foreach (var (key, value) in hits)
+            foreach (var (key, value) in Hits[slot])
             {
-                hits[HitData.HdHitAll] += value;
+                Hits[slot][HitData.HdHitAll] += value;
             }
         }
         catch (Exception e)

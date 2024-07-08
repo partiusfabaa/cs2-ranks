@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Menu;
 using RanksApi;
 
 namespace Ranks;
@@ -7,9 +8,15 @@ namespace Ranks;
 public class RanksApi : IRanksApi
 {
     public event Action<CCSPlayerController, int, bool>? RankChanged;
+    public event Func<CCSPlayerController, int, int?>? PlayerExperienceChanged;
+
+    [Obsolete("Use PlayerExperienceChanged instead.")]
     public event Func<CCSPlayerController, int, int?>? PlayerGainedExperience;
+
+    [Obsolete("Use PlayerExperienceChanged instead.")]
     public event Func<CCSPlayerController, int, int?>? PlayerLostExperience;
-    
+
+    public event Action<CCSPlayerController, IMenu>? CreatedMenu;
     public string CoreConfigDirectory { get; }
     public string ModulesConfigDirectory => Path.Combine(CoreConfigDirectory, "Modules/");
     public string DatabaseTableName => _ranks.Config.TableName;
@@ -18,12 +25,12 @@ public class RanksApi : IRanksApi
 
     private readonly Ranks _ranks;
 
-    public RanksApi(Ranks ranks, string directory)
+    public RanksApi(Ranks ranks)
     {
         _ranks = ranks;
-        CoreConfigDirectory = new DirectoryInfo(directory).Parent?.Parent?.FullName + "/configs/plugins/RanksCore/";
+        CoreConfigDirectory = Path.Combine(Application.RootDirectory, "configs/plugins/RanksCore/");
     }
-    
+
     public int GetPlayerExperience(CCSPlayerController player)
     {
         return _ranks.Users.TryGetValue(player.SteamID, out var user) ? user.value : -1;
@@ -52,7 +59,7 @@ public class RanksApi : IRanksApi
 
         user.value += exp;
     }
-    
+
     public void TakePlayerExperience(CCSPlayerController player, int exp)
     {
         if (!_ranks.Users.TryGetValue(player.SteamID, out var user)) return;
@@ -69,7 +76,7 @@ public class RanksApi : IRanksApi
     {
         _ranks.PrintToChatAll(message);
     }
-    
+
     public T LoadConfig<T>(string name, string path)
     {
         var configFilePath = Path.Combine(path, $"{name}.json");
@@ -100,14 +107,14 @@ public class RanksApi : IRanksApi
     {
         RankChanged?.Invoke(player, newRank, promoted);
     }
-    
-    public int? OnPlayerGainedExperience(CCSPlayerController player, int exp)
+
+    public int? OnPlayerExperienceChanged(CCSPlayerController player, int exp)
     {
-        return PlayerGainedExperience?.Invoke(player, exp);
+        return PlayerExperienceChanged?.Invoke(player, exp);
     }
-    
-    public int? OnPlayerLostExperience(CCSPlayerController player, int exp)
+
+    public void OnCreatedMenu(CCSPlayerController player, IMenu menu)
     {
-        return PlayerLostExperience?.Invoke(player, exp);
+        CreatedMenu?.Invoke(player, menu);
     }
 }

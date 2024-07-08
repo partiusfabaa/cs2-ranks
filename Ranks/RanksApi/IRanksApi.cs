@@ -1,15 +1,24 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Modules.Menu;
 
 namespace RanksApi;
 
 public interface IRanksApi
 {
     public static PluginCapability<IRanksApi> Capability { get; } = new("ranks-core:api");
-    
+
     event Action<CCSPlayerController, int, bool>? RankChanged;
+    event Func<CCSPlayerController, int, int?>? PlayerExperienceChanged;
+
+    [Obsolete("Use PlayerExperienceChanged instead.")]
     event Func<CCSPlayerController, int, int?>? PlayerGainedExperience;
+
+    [Obsolete("Use PlayerExperienceChanged instead.")]
     event Func<CCSPlayerController, int, int?>? PlayerLostExperience;
+
+    event Action<CCSPlayerController, IMenu>? CreatedMenu; 
+
     string CoreConfigDirectory { get; }
     string ModulesConfigDirectory { get; }
     string DatabaseConnectionString { get; }

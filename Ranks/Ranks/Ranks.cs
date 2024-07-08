@@ -27,7 +27,7 @@ public class Ranks : BasePlugin
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleDescription => "Adds a rating system to the server";
     public override string ModuleName => "[Ranks] Core";
-    public override string ModuleVersion => "v2.0.4";
+    public override string ModuleVersion => "v2.0.5";
 
     public string DbConnectionString = string.Empty;
 
@@ -38,9 +38,11 @@ public class Ranks : BasePlugin
     public readonly ConcurrentDictionary<ulong, User> Users = new();
     private readonly DateTime[] _loginTime = new DateTime[64];
 
+    public readonly FakeConVar<bool> RanksEnable = new("css_lr_enable", "", true);
+    
     public override void Load(bool hotReload)
     {
-        RanksApi = new RanksApi(this, ModuleDirectory);
+        RanksApi = new RanksApi(this);
         Capabilities.RegisterPluginCapability(IRanksApi.Capability, () => RanksApi);
 
         Config = LoadConfig();
@@ -48,161 +50,26 @@ public class Ranks : BasePlugin
         Database = new Database(this, DbConnectionString);
         Task.Run(Database.CreateTable);
 
-        RegisterListener<Listeners.OnMapStart>(OnMapStart);
-        RegisterListener<Listeners.OnClientAuthorized>((slot, id) =>
-        {
-            var player = Utilities.GetPlayerFromSlot(slot);
-
-            if (player is null || player.IsBot) return;
-            var playerName = player.PlayerName;
-
-            Task.Run(() => OnClientAuthorizedAsync(playerName, id));
-            _loginTime[player.Slot] = DateTime.UtcNow;
-        });
-
-        RegisterEventHandler<EventRoundMvp>(EventRoundMvp);
-        RegisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
-        RegisterEventHandler<EventWeaponFire>((@event, _) =>
-        {
-            var player = @event.Userid;
-            if (player != null)
-                UpdateUserStatsLocal(player, exp: -1, hits: 1);
-
-            return HookResult.Continue;
-        });
-        RegisterEventHandler<EventPlayerHurt>((@event, _) =>
-        {
-            var attacker = @event.Attacker;
-
-            if (attacker is { IsValid: true, IsBot: false })
-            {
-                UpdateUserStatsLocal(attacker, exp: -1, shoots: 1);
-            }
-
-            return HookResult.Continue;
-        });
-        RegisterEventHandler<EventPlayerDisconnect>((@event, _) =>
-        {
-            var player = @event.Userid;
-
-            if (player is null || !player.IsValid) return HookResult.Continue;
-
-            if (Users.TryGetValue(player.SteamID, out var user))
-            {
-                var steamId = new SteamID(player.SteamID);
-                var totalTime = GetTotalTime(player.Slot);
-                _loginTime[player.Slot] = DateTime.MinValue;
-
-                user.name = player.PlayerName;
-                Task.Run(() =>
-                    Database.UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
-                Users.Remove(player.SteamID, out var _);
-            }
-
-            return HookResult.Continue;
-        });
-
         AddCommandListener("say", CommandListener_Say);
         AddCommandListener("say_team", CommandListener_Say);
-
-        AddTimer(5.0f, () =>
-        {
-            foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
-            {
-                if (!Users.TryGetValue(player.SteamID, out var user)) continue;
-
-                var steamId = new SteamID(player.SteamID);
-                var totalTime = GetTotalTime(player.Slot);
-
-                Task.Run(() =>
-                    Database.UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
-                //Task.Run(OnMapStartAsync);
-            }
-        }, TimerFlags.REPEAT);
-
-
-        RoundEvent();
+        
+        RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
+        
+        RegisterEventHandler<EventWeaponFire>(EventWeaponFire);
+        RegisterEventHandler<EventPlayerHurt>(EventPlayerHurt);
+        RegisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
+        RegisterEventHandler<EventPlayerDisconnect>(EventPlayerDisconnect);
+        
+        RegisterEventHandler<EventRoundStart>(EventRoundStart);
+        RegisterEventHandler<EventRoundEnd>(EventRoundEnd);
+        RegisterEventHandler<EventRoundMvp>(EventRoundMvp);
+        
         BombEvents();
         CreateMenu();
+        
+        AddTimer(5.0f, UpdateUserStatsTimer, TimerFlags.REPEAT);
     }
-
-    public readonly FakeConVar<bool> RanksEnable = new("css_lr_enable", "", true);
-
-    private void OnMapStart(string mapName)
-    {
-    }
-
-    private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
-    {
-        if (player == null) return HookResult.Continue;
-        var msg = Utils.GetTextInsideQuotes(info.ArgString);
-
-        if (msg.StartsWith('!') || msg.StartsWith('/')) return HookResult.Continue;
-
-        if (Config.UseCommandWithoutPrefix)
-        {
-            switch (msg)
-            {
-                case "rank":
-                    OnCmdRank(player, info);
-                    return HookResult.Continue;
-                case "top":
-                    OnCmdTop(player, info);
-                    return HookResult.Continue;
-            }
-        }
-
-        return HookResult.Continue;
-    }
-
-    private async Task ResetRank(int slot, string name, SteamID steamId)
-    {
-        var steamId2 = steamId.SteamId2.ReplaceFirstCharacter();
-
-        await Database.ResetPlayerData(steamId2);
-        Users[steamId.SteamId64] = new User
-        {
-            steam = steamId2,
-            name = name,
-            value = Config.InitialExperiencePoints
-        };
-        _loginTime[slot] = DateTime.UtcNow;
-    }
-
-    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
-    {
-        var userExists = await Database.UserExists(steamId.SteamId2);
-
-        if (!userExists)
-            await Database.AddUserToDb(playerName, steamId.SteamId2);
-
-        var user = await Database.GetUserStatsFromDb(steamId.SteamId2);
-
-        if (user == null) return;
-
-        var initPoints = Config.InitialExperiencePoints;
-        if (user.value <= 0 && initPoints > 0)
-            user.value = initPoints;
-
-        Users[steamId.SteamId64] = new User
-        {
-            steam = user.steam,
-            name = user.name,
-            value = user.value,
-            rank = user.rank,
-            kills = user.kills,
-            deaths = user.deaths,
-            shoots = user.shoots,
-            hits = user.hits,
-            headshots = user.headshots,
-            assists = user.assists,
-            round_win = user.round_win,
-            round_lose = user.round_lose,
-            playtime = user.playtime,
-            lastconnect = user.lastconnect
-        };
-    }
-
+    
     [ConsoleCommand("css_rank")]
     public void OnCmdRank(CCSPlayerController? controller, CommandInfo command)
     {
@@ -279,7 +146,7 @@ public class Ranks : BasePlugin
 
         if (topPlayersSorted == null) return;
 
-        Server.NextFrame(() =>
+        await Server.NextFrameAsync(() =>
         {
             controller.PrintToChat(Localizer["top.Title"]);
             var rank = 1;
@@ -287,23 +154,131 @@ public class Ranks : BasePlugin
             {
                 if (!controller.IsValid) continue;
 
+                //controller.PrintToChat(
+                //    $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
                 controller.PrintToChat(
-                    $"{rank++}. {ChatColors.Blue}{player.name} \x01[{ChatColors.Olive}{ReplaceColorTags(GetLevelFromExperience(player.value).Name)}\x01] -\x06 Experience: {ChatColors.Blue}{player.value}");
+                    $"{rank++}. {Localizer["top.Players", player.name, ReplaceColorTags(GetLevelFromExperience(player.value).Name), player.value]}");
             }
         });
     }
+    
+    private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null) return HookResult.Continue;
+        var msg = Utils.GetTextInsideQuotes(info.ArgString);
 
-    private HookResult EventPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
+        if (msg.StartsWith('!') || msg.StartsWith('/')) return HookResult.Continue;
+
+        if (Config.UseCommandWithoutPrefix)
+        {
+            switch (msg)
+            {
+                case "rank":
+                    OnCmdRank(player, info);
+                    return HookResult.Continue;
+                case "top":
+                    OnCmdTop(player, info);
+                    return HookResult.Continue;
+            }
+        }
+
+        return HookResult.Continue;
+    }
+    
+    private void OnClientAuthorized(int slot, SteamID id)
+    {
+        var player = Utilities.GetPlayerFromSlot(slot);
+
+        if (player is null || player.IsBot) return;
+        var playerName = player.PlayerName;
+
+        Task.Run(() => OnClientAuthorizedAsync(playerName, id));
+        _loginTime[player.Slot] = DateTime.UtcNow;
+    }
+    
+    private async Task OnClientAuthorizedAsync(string playerName, SteamID steamId)
+    {
+        var userExists = await Database.UserExists(steamId.SteamId2);
+
+        if (!userExists)
+            await Database.AddUserToDb(playerName, steamId.SteamId2);
+
+        var user = await Database.GetUserStatsFromDb(steamId.SteamId2);
+
+        if (user == null) return;
+
+        var initPoints = Config.InitialExperiencePoints;
+        if (user.value <= 0 && initPoints > 0)
+            user.value = initPoints;
+
+        Users[steamId.SteamId64] = new User
+        {
+            steam = user.steam,
+            name = user.name,
+            value = user.value,
+            rank = user.rank,
+            kills = user.kills,
+            deaths = user.deaths,
+            shoots = user.shoots,
+            hits = user.hits,
+            headshots = user.headshots,
+            assists = user.assists,
+            round_win = user.round_win,
+            round_lose = user.round_lose,
+            playtime = user.playtime,
+            lastconnect = user.lastconnect
+        };
+    }
+    
+    private void UpdateUserStatsTimer()
+    {
+        foreach (var player in Utilities.GetPlayers().Where(u => u.IsValid))
+        {
+            if (!Users.TryGetValue(player.SteamID, out var user)) continue;
+
+            var steamId = new SteamID(player.SteamID);
+            var totalTime = GetTotalTime(player.Slot);
+
+            Task.Run(() =>
+                Database.UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
+            //Task.Run(OnMapStartAsync);
+        }
+    }
+
+    private HookResult EventWeaponFire(EventWeaponFire @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+        if (player != null)
+            UpdateUserStatsLocal(player, hits: 1);
+
+        return HookResult.Continue;
+    }
+
+    private HookResult EventPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
+    {
+        var attacker = @event.Attacker;
+
+        if (attacker is { IsValid: true, IsBot: false })
+        {
+            UpdateUserStatsLocal(attacker, shoots: 1);
+        }
+
+        return HookResult.Continue;
+    }
+    
+     private HookResult EventPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
         var victim = @event.Userid;
         var attacker = @event.Attacker;
         var assister = @event.Assister;
 
-        if (Config.MinPlayers > PlayersCount())
+        if (Config.MinPlayers > PlayersCount)
             return HookResult.Continue;
 
         var configEvent = Config.Events.EventPlayerDeath;
         var additionally = Config.Events.Additionally;
+
+        var expAttacker = 0;
 
         if (attacker is not null && attacker.IsValid)
         {
@@ -314,7 +289,7 @@ public class Ranks : BasePlugin
             {
                 if (victim is not null && attacker.TeamNum == victim.TeamNum && !Config.TeamKillAllowed)
                     UpdateUserStatsLocal(attacker, Localizer["KillingAnAlly"],
-                        exp: configEvent.KillingAnAlly, increase: false);
+                        exp: configEvent.KillingAnAlly);
                 else
                 {
                     var weaponName = @event.Weapon;
@@ -322,7 +297,18 @@ public class Ranks : BasePlugin
                     if (Regex.Match(weaponName, "knife").Success || Regex.Match(weaponName, "bayonet").Success)
                         weaponName = "knife";
 
-                    UpdateUserStatsLocal(attacker, Localizer["PerKill"], exp: configEvent.Kills, kills: 1);
+                    if (Config.TypeStatistics is 1)
+                    {
+                        expAttacker = (Users[victim.SteamID].value / Users[attacker.SteamID].value * 5.0f)
+                            .RoundToNearest();
+
+                        if (expAttacker < 1)
+                            expAttacker = 1;
+
+                        UpdateUserStatsLocal(attacker, Localizer["PerKill"], exp: expAttacker, kills: 1);
+                    }
+                    else
+                        UpdateUserStatsLocal(attacker, Localizer["PerKill"], exp: configEvent.Kills, kills: 1);
 
                     if (@event.Penetrated > 0)
                         UpdateUserStatsLocal(attacker, Localizer["KillingThroughWall"], exp: additionally.Penetrated);
@@ -347,9 +333,24 @@ public class Ranks : BasePlugin
                 return HookResult.Continue;
 
             if (attacker != victim)
-                UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths, increase: false, death: 1);
+            {
+                if (Config.TypeStatistics is 1)
+                {
+                    var expVictim = (expAttacker * Config.KillCoefficient).RoundToNearest();
+                    if (expVictim < 1)
+                    {
+                        expVictim = 1;
+                    }
+
+                    UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: -expVictim,
+                        death: 1);
+                }
+                else
+                    UpdateUserStatsLocal(victim, Localizer["PerDeath"], exp: configEvent.Deaths,
+                        death: 1);
+            }
             else
-                UpdateUserStatsLocal(victim, Localizer["suicide"], exp: configEvent.Suicide, increase: false);
+                UpdateUserStatsLocal(victim, Localizer["suicide"], exp: configEvent.Suicide);
         }
 
         if (assister is not null && assister.IsValid)
@@ -361,49 +362,67 @@ public class Ranks : BasePlugin
         return HookResult.Continue;
     }
 
+    private HookResult EventPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+
+        if (player is null || !player.IsValid) return HookResult.Continue;
+
+        if (Users.TryGetValue(player.SteamID, out var user))
+        {
+            var steamId = new SteamID(player.SteamID);
+            var totalTime = GetTotalTime(player.Slot);
+            _loginTime[player.Slot] = DateTime.MinValue;
+
+            user.name = player.PlayerName;
+            Task.Run(() =>
+                Database.UpdateUserStatsDb(steamId, user, totalTime, DateTimeOffset.Now.ToUnixTimeSeconds()));
+            Users.Remove(player.SteamID, out var _);
+        }
+
+        return HookResult.Continue;
+    }
+
+    private HookResult EventRoundStart(EventRoundStart @event, GameEventInfo info)
+    {
+        var playerCount = PlayersCount;
+        if (Config.MinPlayers > playerCount && RanksEnable.Value)
+        {
+            PrintToChatAll(Localizer["NotEnoughPlayers", playerCount, Config.MinPlayers]);
+        }
+
+        return HookResult.Continue;
+    }
+
+    private HookResult EventRoundEnd(EventRoundEnd @event, GameEventInfo info)
+    {
+        if (@event.Reason is (int)RoundEndReason.RoundDraw) return HookResult.Continue;
+        var winner = @event.Winner;
+
+        var configEvent = Config.Events.EventRoundEnd;
+
+        if (Config.MinPlayers > PlayersCount) return HookResult.Continue;
+
+        foreach (var player in Utilities.GetPlayers().Where(u => u is { IsValid: true, IsBot: false }))
+        {
+            if (player.Team is not CsTeam.Spectator)
+            {
+                if (player.TeamNum != winner)
+                    UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, roundlose: 1);
+                else
+                    UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner, roundwin: 1);
+            }
+        }
+
+        return HookResult.Continue;
+    }
+    
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
         UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
             exp: Config.Events.EventRoundMvp);
 
         return HookResult.Continue;
-    }
-
-    private void RoundEvent()
-    {
-        RegisterEventHandler<EventRoundStart>((_, _) =>
-        {
-            var playerCount = PlayersCount();
-            if (Config.MinPlayers > playerCount && RanksEnable.Value)
-            {
-                PrintToChatAll(Localizer["NotEnoughPlayers", playerCount, Config.MinPlayers]);
-            }
-
-            return HookResult.Continue;
-        });
-
-        RegisterEventHandler<EventRoundEnd>((@event, _) =>
-        {
-            if (@event.Reason is (int)RoundEndReason.RoundDraw) return HookResult.Continue;
-            var winner = @event.Winner;
-
-            var configEvent = Config.Events.EventRoundEnd;
-
-            if (Config.MinPlayers > PlayersCount()) return HookResult.Continue;
-
-            foreach (var player in Utilities.GetPlayers().Where(u => u is { IsValid: true, IsBot: false }))
-            {
-                if (player.Team is not CsTeam.Spectator)
-                {
-                    if (player.TeamNum != winner)
-                        UpdateUserStatsLocal(player, Localizer["LosingRound"], exp: configEvent.Loser, roundlose: 1, increase: false);
-                    else
-                        UpdateUserStatsLocal(player, Localizer["WinningRound"], exp: configEvent.Winner, roundwin: 1);
-                }
-            }
-
-            return HookResult.Continue;
-        });
     }
 
     private void BombEvents()
@@ -414,7 +433,7 @@ public class Ranks : BasePlugin
             var player = @event.Userid;
 
             if (player != null && player.IsValid)
-                UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb, increase: false);
+                UpdateUserStatsLocal(player, Localizer["dropping_bomb"], exp: configEvent.DroppedBomb);
             return HookResult.Continue;
         });
 
@@ -448,103 +467,7 @@ public class Ranks : BasePlugin
             return HookResult.Continue;
         });
     }
-
-    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
-        int exp = 0, bool increase = true, int kills = 0, int death = 0, int assist = 0,
-        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
-    {
-        if (!RanksEnable.Value) return;
-
-        var isWarmup = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
-            .WarmupPeriod;
-        if (player == null || Config.MinPlayers > PlayersCount() || isWarmup) return;
-
-        if (!Users.TryGetValue(player.SteamID, out var user)) return;
-
-        exp = exp == -1 ? 0 : exp;
-
-        if (increase)
-        {
-            var newExp = RanksApi.OnPlayerGainedExperience(player, exp);
-            user.value += newExp ?? exp;
-        }
-        else
-        {
-            var newExp = RanksApi.OnPlayerLostExperience(player, exp);
-            user.value -= newExp ?? exp;
-        }
-
-        user.kills += kills;
-        user.deaths += death;
-        user.assists += assist;
-        user.round_lose += roundlose;
-        user.round_win += roundwin;
-        user.headshots += headshots;
-        user.hits += hits;
-        user.shoots += shoots;
-
-        if (user.value <= 0) user.value = Config.InitialExperiencePoints;
-
-        var nextXp = GetExperienceToNextLevel(player);
-        if (exp != 0 && Config.ShowExperienceMessages)
-        {
-            Server.NextFrame(() => PrintToChat(player,
-                $"{(increase ? "\x0C+" : "\x02-")}{exp} XP \x08{msg} {(nextXp == 0 ? string.Empty : $"{Localizer["next_level", nextXp]}")}"));
-        }
-    }
-
-    public (string Name, int Level) GetLevelFromExperience(long experience)
-    {
-        foreach (var rank in Config.Ranks.OrderByDescending(pair => pair.Value))
-        {
-            if (experience >= rank.Value)
-            {
-                return (rank.Key, Config.Ranks.Count(pair => pair.Value <= rank.Value));
-            }
-        }
-
-        return (string.Empty, 0);
-    }
-
-    private long GetExperienceToNextLevel(CCSPlayerController player)
-    {
-        if (!Users.TryGetValue(player.SteamID, out var user)) return 0;
-
-        var currentExperience = user.value;
-        foreach (var rank in Config.Ranks.OrderBy(pair => pair.Value))
-        {
-            if (currentExperience < rank.Value)
-            {
-                var requiredExperience = rank.Value;
-                var experienceToNextLevel = requiredExperience - currentExperience;
-
-                var newLevel = GetLevelFromExperience(currentExperience);
-
-                if (newLevel.Level != user.rank)
-                {
-                    var isUpRank = newLevel.Level > user.rank;
-
-                    var newLevelName = ReplaceColorTags(newLevel.Name);
-                    PrintToChat(player, isUpRank
-                        ? Localizer["Up", newLevelName]
-                        : Localizer["Down", newLevelName]);
-
-                    user.rank = newLevel.Level;
-                    RanksApi.OnRankChanged(player, newLevel.Level, isUpRank);
-                }
-
-                return experienceToNextLevel;
-            }
-            else
-            {
-                var newLevel = GetLevelFromExperience(currentExperience);
-                user.rank = newLevel.Level;
-            }
-        }
-
-        return 0;
-    }
-
+    
     private void CreateMenu()
     {
         AddCommand("css_lvl", "", (player, _) =>
@@ -582,8 +505,112 @@ public class Ranks : BasePlugin
                 ranksMenu.AddMenuOption(Localizer["menu.allranks.show", rankName, rankValue], null!, true);
             }
 
+            menu.AddMenuOption(Localizer["menu.top10"],
+                (controller, _) => Task.Run(() => ShowTopPlayers(controller)));
+
+            RanksApi.OnCreatedMenu(player, menu);
             menu.Open(player);
         });
+    }
+    
+    private async Task ResetRank(int slot, string name, SteamID steamId)
+    {
+        var steamId2 = steamId.SteamId2.ReplaceFirstCharacter();
+
+        await Database.ResetPlayerData(steamId2);
+        Users[steamId.SteamId64] = new User
+        {
+            steam = steamId2,
+            name = name,
+            value = Config.InitialExperiencePoints
+        };
+        _loginTime[slot] = DateTime.UtcNow;
+    }
+
+    private void UpdateUserStatsLocal(CCSPlayerController? player, string msg = "",
+        int exp = 0, int kills = 0, int death = 0, int assist = 0,
+        int shoots = 0, int hits = 0, int headshots = 0, int roundwin = 0, int roundlose = 0)
+    {
+        if (!RanksEnable.Value) return;
+
+        var isWarmup = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!
+            .WarmupPeriod;
+        if (player == null || Config.MinPlayers > PlayersCount || isWarmup) return;
+
+        if (!Users.TryGetValue(player.SteamID, out var user)) return;
+
+        var newExp = RanksApi.OnPlayerExperienceChanged(player, exp);
+        exp = newExp ?? exp;
+        user.value += exp;
+
+        user.kills += kills;
+        user.deaths += death;
+        user.assists += assist;
+        user.round_lose += roundlose;
+        user.round_win += roundwin;
+        user.headshots += headshots;
+        user.hits += hits;
+        user.shoots += shoots;
+
+        if (user.value <= 0) user.value = Config.InitialExperiencePoints;
+
+        var nextXp = GetExperienceToNextLevel(player);
+        if (exp != 0 && Config.ShowExperienceMessages)
+        {
+            Server.NextFrame(() => PrintToChat(player,
+                $"{(exp > 0 ? "\x0C+" : "\x02")}{exp} XP \x08{msg} {(nextXp == 0 ? string.Empty : $"{Localizer["next_level", nextXp]}")}"));
+        }
+    }
+
+    public (string Name, int Level) GetLevelFromExperience(long experience)
+    {
+        foreach (var rank in Config.Ranks.OrderByDescending(pair => pair.Value))
+        {
+            if (experience >= rank.Value)
+            {
+                return (rank.Key, Config.Ranks.Count(pair => pair.Value <= rank.Value));
+            }
+        }
+
+        return (string.Empty, 0);
+    }
+
+    private long GetExperienceToNextLevel(CCSPlayerController player)
+    {
+        if (!Users.TryGetValue(player.SteamID, out var user)) return 0;
+
+        var currentExperience = user.value;
+        foreach (var (_, requiredExperience) in Config.Ranks.OrderBy(pair => pair.Value))
+        {
+            if (currentExperience < requiredExperience)
+            {
+                var experienceToNextLevel = requiredExperience - currentExperience;
+
+                var newLevel = GetLevelFromExperience(currentExperience);
+
+                if (newLevel.Level != user.rank)
+                {
+                    var isUpRank = newLevel.Level > user.rank;
+
+                    var newLevelName = ReplaceColorTags(newLevel.Name);
+                    PrintToChat(player, isUpRank
+                        ? Localizer["Up", newLevelName]
+                        : Localizer["Down", newLevelName]);
+
+                    user.rank = newLevel.Level;
+                    RanksApi.OnRankChanged(player, newLevel.Level, isUpRank);
+                }
+
+                return experienceToNextLevel;
+            }
+            else
+            {
+                var newLevel = GetLevelFromExperience(currentExperience);
+                user.rank = newLevel.Level;
+            }
+        }
+
+        return 0;
     }
 
     private async Task GetUserStats(CCSPlayerController controller, SteamID steamId)
@@ -600,7 +627,7 @@ public class Ranks : BasePlugin
         //var currentPlayTime = (DateTime.Now - _loginTime[index]).ToString(@"hh\:mm\:ss");
         var getPlayerTop = await Database.GetPlayerRankAndTotal(steamId.SteamId2);
 
-        Server.NextFrame(() =>
+        await Server.NextFrameAsync(() =>
         {
             if (!controller.IsValid) return;
 
@@ -669,13 +696,15 @@ public class Ranks : BasePlugin
             MinPlayers = 4,
             InitialExperiencePoints = 500,
             StatisticsResetEnabled = true,
+            TypeStatistics = 0,
+            KillCoefficient = 1.04f,
             Events = new EventsExpSettings
             {
                 EventRoundMvp = 12,
                 EventPlayerDeath = new PlayerDeath
-                    { Kills = 13, Deaths = 20, Assists = 5, KillingAnAlly = 10, Suicide = 15 },
-                EventPlayerBomb = new Bomb { DroppedBomb = 5, DefusedBomb = 3, PickUpBomb = 3, PlantedBomb = 4 },
-                EventRoundEnd = new RoundEnd { Winner = 5, Loser = 8 },
+                    { Kills = 13, Deaths = -20, Assists = 5, KillingAnAlly = -10, Suicide = -15 },
+                EventPlayerBomb = new Bomb { DroppedBomb = -5, DefusedBomb = 3, PickUpBomb = 3, PlantedBomb = 4 },
+                EventRoundEnd = new RoundEnd { Winner = 5, Loser = -8 },
                 Additionally = new Additionally
                     { Headshot = 1, Noscope = 2, Attackerblind = 1, Thrusmoke = 1, Penetrated = 2 }
             },
@@ -758,14 +787,12 @@ public class Ranks : BasePlugin
         return totalTime;
     }
 
-    private static int PlayersCount()
-    {
-        return Utilities.GetPlayers().Count(u => u is
+    private int PlayersCount => Utilities.GetPlayers().Count(u => u is
         {
             IsBot: false, IsValid: true, TeamNum: not (0 or 1), PlayerPawn.Value: not null,
             PlayerPawn.Value.IsValid: true
         });
-    }
+
 }
 
 public class PlayerStats
@@ -784,6 +811,8 @@ public class Config
     public int MinPlayers { get; init; }
     public int InitialExperiencePoints { get; init; }
     public bool StatisticsResetEnabled { get; init; }
+    public int TypeStatistics { get; init; }
+    public float KillCoefficient { get; init; }
     public EventsExpSettings Events { get; init; } = null!;
     public Dictionary<string, int> Weapon { get; init; } = null!;
     public Dictionary<string, int> Ranks { get; init; } = null!;

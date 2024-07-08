@@ -40,4 +40,9 @@ public static class Utils
 
         return players.FirstOrDefault(u => u.PlayerName.Contains(input));
     }
+    
+    public static int RoundToNearest(this float value)
+    {
+        return (int)Math.Round(value);
+    }
 }
