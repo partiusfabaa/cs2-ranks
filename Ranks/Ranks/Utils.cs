@@ -1,5 +1,7 @@
-﻿using CounterStrikeSharp.API;
+﻿using System.Diagnostics.CodeAnalysis;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Entities;
 
 namespace Ranks;
 
@@ -27,15 +29,51 @@ public static class Utils
 
         return string.Empty;
     }
+    
+    public static bool GetPlayerBySteamId(string steamId, [NotNullWhen(true)] out CCSPlayerController? player)
+    {
+        player = null;
 
+        if (steamId.Contains("STEAM_1"))
+        {
+            steamId = ReplaceFirstCharacter(steamId);
+        }
+
+        if (steamId.Contains("STEAM_") || steamId.Contains("765611"))
+        {
+            Console.WriteLine($"Player SteamId: {steamId}");
+            player = GetPlayerFromSteamId(steamId);
+            Console.WriteLine($"Player is null: {player == null}");
+            return true;
+        }
+
+        return false;
+    }
+    
+    public static CCSPlayerController? GetPlayerFromSteamId(string steamId)
+    {
+        return Utilities.GetPlayers().Find(u =>
+            u.AuthorizedSteamID != null &&
+            (u.AuthorizedSteamID.SteamId2.ToString().Equals(steamId) ||
+             u.AuthorizedSteamID.SteamId64.ToString().Equals(steamId) ||
+             u.AuthorizedSteamID.AccountId.ToString().Equals(steamId)));
+    }
+    
     public static CCSPlayerController? GetPlayer(string input)
     {
         var players = Utilities.GetPlayers();
-        if (input.StartsWith("#"))
+        if (input.StartsWith('#'))
         {
             if (!int.TryParse(input.Trim('#'), out var value)) return null;
             
             return players.Find(p => p.Slot == value);
+        }
+
+        if (input.StartsWith('@'))
+        {
+            if (!GetPlayerBySteamId(input.Trim('@'), out var player)) return null;
+
+            return player;
         }
 
         return players.FirstOrDefault(u => u.PlayerName.Contains(input));

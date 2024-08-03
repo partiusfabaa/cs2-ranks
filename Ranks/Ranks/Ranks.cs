@@ -80,7 +80,7 @@ public class Ranks : BasePlugin
     }
 
     [RequiresPermissions("@css/root")]
-    [CommandHelper(2, "<username or #userid> [exp (def. 0)]")]
+    [CommandHelper(1, "<username or #userid or @steamid> [exp (def. 0)]")]
     [ConsoleCommand("css_lr_giveexp")]
     public void OnCmdGiveExp(CCSPlayerController? player, CommandInfo info)
     {
@@ -102,7 +102,7 @@ public class Ranks : BasePlugin
     }
 
     [RequiresPermissions("@css/root")]
-    [CommandHelper(2, "<username or #userid> [exp (def. 0)]")]
+    [CommandHelper(1, "<username or #userid or @steamid> [exp (def. 0)]")]
     [ConsoleCommand("css_lr_takeexp")]
     public void OnCmdTakeExp(CCSPlayerController? player, CommandInfo info)
     {
