@@ -48,7 +48,12 @@ public class Ranks : BasePlugin
         Config = LoadConfig();
         DbConnectionString = BuildConnectionString();
         Database = new Database(this, DbConnectionString);
-        Task.Run(Database.CreateTable);
+        Task.Run(Database.CreateTable).ContinueWith((task) => {
+            if (task.IsFaulted)
+            {
+                throw task.Exception;
+            }
+        });
 
         AddCommandListener("say", CommandListener_Say);
         AddCommandListener("say_team", CommandListener_Say);
