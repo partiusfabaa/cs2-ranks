@@ -35,4 +35,7 @@ Type 0:
 Type 1:
 ![image](https://github.com/user-attachments/assets/68158a07-33f8-4bad-ad7a-0c69ae44c889)
 
+Type 1 custom rank:
+![image](https://github.com/user-attachments/assets/8a987025-ceab-4920-b107-612559a3bc37)
+
 
