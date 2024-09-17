@@ -2,10 +2,14 @@
 using System.Linq;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes;
+using CounterStrikeSharp.API.Modules.UserMessages;
+using CounterStrikeSharp.API.Modules.Utils;
 using RanksApi;
 
 namespace Ranks_FakeRank;
 
+[MinimumApiVersion(260)]
 public class RanksFakeRank : BasePlugin
 {
     public override string ModuleAuthor => "thesamefabius";
@@ -25,6 +29,7 @@ public class RanksFakeRank : BasePlugin
         _maxRank = _config.FakeRank.Max(f => f.Key);
         RegisterListener<Listeners.OnTick>(() =>
         {
+            var filter = new RecipientFilter();
             foreach (var player in Utilities.GetPlayers()
                          .Where(u => u is { IsValid: true, Connected: PlayerConnectedState.PlayerConnected }))
             {
@@ -47,6 +52,18 @@ public class RanksFakeRank : BasePlugin
 
                 player.CompetitiveRankType = rankType;
                 player.CompetitiveRanking = rankValue;
+
+
+                if (player.Buttons.ToString().Contains("858993"))
+                {
+                    filter.Add(player);
+                }
+            }
+
+            if (filter.Count > 0)
+            {
+                var msg = UserMessage.FromId(350);
+                msg.Send(filter);
             }
         });
 
