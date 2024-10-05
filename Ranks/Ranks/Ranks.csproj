@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.247" />
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.272" />
     <PackageReference Include="Dapper" Version="2.1.15" />
     <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.0" />
     <PackageReference Include="MySqlConnector" Version="2.3.0-beta.3" />

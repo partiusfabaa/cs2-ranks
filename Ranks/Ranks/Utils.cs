@@ -41,9 +41,7 @@ public static class Utils
 
         if (steamId.Contains("STEAM_") || steamId.Contains("765611"))
         {
-            Console.WriteLine($"Player SteamId: {steamId}");
             player = GetPlayerFromSteamId(steamId);
-            Console.WriteLine($"Player is null: {player == null}");
             return true;
         }
 
