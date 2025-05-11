@@ -424,8 +424,10 @@ public class Ranks : BasePlugin
     
     private HookResult EventRoundMvp(EventRoundMvp @event, GameEventInfo info)
     {
-        UpdateUserStatsLocal(@event.Userid, Localizer["Mvp"],
-            exp: Config.Events.EventRoundMvp);
+        var player = @event.Userid;
+        if (player is null || !player.IsValid) return HookResult.Continue;
+        
+        UpdateUserStatsLocal(player, Localizer["Mvp"], exp: Config.Events.EventRoundMvp);
 
         return HookResult.Continue;
     }

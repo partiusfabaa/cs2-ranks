@@ -121,7 +121,8 @@ public class RanksExStatsHits : BasePlugin
         var player = @event.Attacker;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        var hits = Hits[player.Slot];
+        if (!Hits.TryGetValue(player.Slot, out var hits))
+            return HookResult.Continue;
 
         hits[HitData.HdDmgHealth] += @event.DmgHealth;
         hits[HitData.HdDmgArmor] += @event.DmgArmor;
